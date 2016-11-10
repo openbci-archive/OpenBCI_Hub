@@ -40,3 +40,4 @@ jspm_packages
 
 app/*.js.map
 dist/
+.DS_Store

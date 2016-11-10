@@ -131,42 +131,41 @@ var env = jetpack.cwd(__dirname).read('env.json', 'json');
 // app starts. This script is running through entire life of your application.
 // It doesn't have any windows which you can see on screen, but we can open
 // window from here.
-
 // Special module holding environment variables which you declared
 // in config/env_xxx.json file.
-var setApplicationMenu = function () {
-    var menus = [editMenuTemplate];
-    if (env.name !== 'production') {
-        menus.push(devMenuTemplate);
-    }
-    electron.Menu.setApplicationMenu(electron.Menu.buildFromTemplate(menus));
+var setApplicationMenu = () => {
+  var menus = [editMenuTemplate];
+  // if (env.name !== 'production') {
+  menus.push(devMenuTemplate);
+  // }
+  electron.Menu.setApplicationMenu(electron.Menu.buildFromTemplate(menus));
 };
 
 // Save userData in separate folders for each environment.
 // Thanks to this you can use production and development versions of the app
 // on same machine like those are two separate apps.
 if (env.name !== 'production') {
-    var userDataPath = electron.app.getPath('userData');
-    electron.app.setPath('userData', userDataPath + ' (' + env.name + ')');
+  var userDataPath = electron.app.getPath('userData');
+  electron.app.setPath('userData', userDataPath + ' (' + env.name + ')');
 }
 
-electron.app.on('ready', function () {
-    setApplicationMenu();
+electron.app.on('ready', () => {
+  setApplicationMenu();
 
-    var mainWindow = createWindow('main', {
-        width: 1000,
-        height: 600
-    });
+  var mainWindow = createWindow('main', {
+    width: 1000,
+    height: 600
+  });
 
-    mainWindow.loadURL('file://' + __dirname + '/app.html');
+  mainWindow.loadURL('file://' + __dirname + '/app.html');
 
-    if (env.name === 'development') {
-        mainWindow.openDevTools();
-    }
+  if (env.name === 'development') {
+    mainWindow.openDevTools();
+  }
 });
 
 electron.app.on('window-all-closed', function () {
-    electron.app.quit();
+  electron.app.quit();
 });
 }());
 //# sourceMappingURL=background.js.map

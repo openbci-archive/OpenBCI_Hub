@@ -41,8 +41,12 @@ const kTcpCmdScan = 's';
 const kTcpCmdStatus = 'q';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeSuccess = 200;
-const kTcpCodeStatusScanning = 300;
-const kTcpCodeStatusNotScanning = 301;
+const kTcpCodeGanglionFound = 201;
+const kTcpCodeStatusConnected = 300;
+const kTcpCodeStatusDisconnected = 301;
+const kTcpCodeStatusScanning = 302;
+const kTcpCodeStatusNotScanning = 303;
+const kTcpCodeErrorUnknown = 499;
 const kTcpCodeErrorAlreadyConnected = 408;
 const kTcpCodeErrorCommandNotRecognized = 406;
 const kTcpCodeErrorDeviceNotFound = 405;
@@ -52,6 +56,7 @@ const kTcpCodeErrorUnableToDisconnect = 401;
 const kTcpCodeErrorScanAlreadyScanning = 409;
 const kTcpCodeErrorScanNoneFound = 407;
 const kTcpCodeErrorScanNoScanToStop = 410;
+const kTcpCodeErrorScanCouldNotStart = 412;
 const kTcpCodeErrorScanCouldNotStop = 411;
 const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
@@ -188,11 +193,8 @@ var parseMessage = (msg, client) => {
       processScan(msg, client);
       break;
     case kTcpCmdStatus:
-      if (ganglion.isConnected()) {
-        client.write(`${kTcpCmdStatus},${kTcpCodeSuccess},true${kTcpStop}`);
-      } else {
-        client.write(`${kTcpCmdStatus},${kTcpCodeSuccess},false${kTcpStop}`);
-      }
+      // A simple loop back
+      client.write(`${kTcpCmdStatus},${kTcpCodeSuccess}${kTcpStop}`);
       break;
     case kTcpCmdError:
     default:
@@ -204,7 +206,7 @@ var parseMessage = (msg, client) => {
 const processScan = (msg, client) => {
   const ganglionFound = (peripheral) => {
     const localName = peripheral.advertisement.localName;
-    client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${localName}${kTcpStop}`);
+    client.write(`${kTcpCmdScan},${kTcpCodeGanglionFound},${localName}${kTcpStop}`);
   };
   let msgElements = msg.toString().split(',');
   const action = msgElements[1];
@@ -220,7 +222,7 @@ const processScan = (msg, client) => {
           })
           .catch((err) => {
             ganglion.removeListener(k.OBCIEmitterGanglionFound, ganglionFound);
-            client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoneFound},${err}${kTcpStop}`);
+            client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
           });
       }
       break;
