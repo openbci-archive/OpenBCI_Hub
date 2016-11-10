@@ -124,6 +124,7 @@ function createWindow (name, options) {
 
 // Simple wrapper exposing environment variables to rest of the code.
 
+// The variables have been written to `env.json` by the build process.
 var env = jetpack.cwd(__dirname).read('env.json', 'json');
 
 // This is main process of Electron, started as first thing when your
@@ -131,6 +132,8 @@ var env = jetpack.cwd(__dirname).read('env.json', 'json');
 // It doesn't have any windows which you can see on screen, but we can open
 // window from here.
 
+// Special module holding environment variables which you declared
+// in config/env_xxx.json file.
 var setApplicationMenu = function () {
     var menus = [editMenuTemplate];
     if (env.name !== 'production') {

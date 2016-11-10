@@ -59,6 +59,7 @@ const kTcpStop = ',;\n';
 
 let verbose = true;
 let ganglion = new Ganglion({
+  nobleScanOnPowerOn: false,
   verbose: verbose
 });
 

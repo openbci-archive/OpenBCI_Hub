@@ -11,6 +11,6 @@
   "dependencies": {
     "fs-jetpack": "^0.9.0",
     "lodash": "^4.16.6",
-    "openbci": "^2.0.0"
+    "openbci": "file:/Users/andrewkeller/openbci/OpenBCI_NodeJS"
   }
 }
