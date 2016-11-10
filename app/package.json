@@ -9,6 +9,7 @@
   "license": "MIT",
   "main": "background.js",
   "dependencies": {
-    "fs-jetpack": "^0.9.0"
+    "fs-jetpack": "^0.9.0",
+    "openbci": "^2.0.0"
   }
 }
