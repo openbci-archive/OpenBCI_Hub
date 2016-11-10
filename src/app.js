@@ -6,15 +6,15 @@ import os from 'os'; // native node.js module
 import net from 'net';
 import { remote } from 'electron'; // native electron module
 import jetpack from 'fs-jetpack'; // module loaded from npm
-import { Ganglion } from 'openbci';
+import { Ganglion, k } from 'openbci'; // native npm module
 import { greet } from './hello_world/hello_world'; // code authored by you in this project
 import env from './env';
-import * as _ from 'underscore';
+import * as _ from 'lodash';
 
 console.log('Loaded environment variables:', env);
 
-var app = remote.app;
-var appDir = jetpack.cwd(app.getAppPath());
+const app = remote.app;
+const appDir = jetpack.cwd(app.getAppPath());
 
 // Holy crap! This is browser window with HTML and stuff, but I can read
 // here files like it is node.js! Welcome to Electron world :)
@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /** TCP */
+const kTcpActionStart = 'start';
+const kTcpActionStatus = 'status';
+const kTcpActionStop = 'stop';
 const kTcpCmdConnect = 'c';
 const kTcpCmdCommand = 'k';
 const kTcpCmdData = 't';
@@ -38,6 +41,8 @@ const kTcpCmdScan = 's';
 const kTcpCmdStatus = 'q';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeSuccess = 200;
+const kTcpCodeStatusScanning = 300;
+const kTcpCodeStatusNotScanning = 301;
 const kTcpCodeErrorAlreadyConnected = 408;
 const kTcpCodeErrorCommandNotRecognized = 406;
 const kTcpCodeErrorDeviceNotFound = 405;
@@ -46,6 +51,8 @@ const kTcpCodeErrorUnableToConnect = 402;
 const kTcpCodeErrorUnableToDisconnect = 401;
 const kTcpCodeErrorScanAlreadyScanning = 409;
 const kTcpCodeErrorScanNoneFound = 407;
+const kTcpCodeErrorScanNoScanToStop = 410;
+const kTcpCodeErrorScanCouldNotStop = 411;
 const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpStop = ',;\n';
@@ -55,62 +62,71 @@ let ganglion = new Ganglion({
   verbose: verbose
 });
 
-let clients = [];
+let _client = null;
 
 // Start a TCP Server
 net.createServer((client) => {
   // Identify this client
   client.name = `${client.remoteAddress}:${client.remotePort}`;
 
-  if (this.options.verbose) {
+  if (verbose) {
     console.log(`Welcome ${client.name}`);
   }
 
   // Put this new client in the list
-  clients.push(client);
+  if (_.isNull(_client)) {
+    _client = client;
+    console.log('client set');
 
-  // Handle incoming messages from clients.
-  client.on('data', (data) => {
-    if (this.options.verbose) {
-      console.log(`server got: ${data} from ${client.name}`);
-    }
-    this.parseMessage(data, client);
-  });
+    // Handle incoming messages from clients.
+    client.on('data', (data) => {
+      if (verbose) {
+        console.log(`server got: ${data} from ${client.name}`);
+      }
+      parseMessage(data, client);
+    });
 
-  // Remove the client from the list when it leaves
-  client.on('end', () => {
-    clients.splice(clients.indexOf(client), 1);
-    if (this.options.verbose) {
-      console.log(`${client.name} has left`);
-    }
-    client.removeAllListeners('data');
-    client.removeAllListeners('end');
-    client.removeAllListeners('error');
-  });
+    // Remove the client from the list when it leaves
+    client.on('end', () => {
+      _client = null;
+      if (verbose) {
+        console.log(`${client.name} has left`);
+      }
+      client.removeAllListeners('data');
+      client.removeAllListeners('end');
+      client.removeAllListeners('error');
+    });
 
-  client.on('error', (err) => {
-    if (this.options.verbose) {
-      console.log(`Error from ${client.name}: ${err}`);
-    }
-  });
+    client.on('error', (err) => {
+      if (verbose) {
+        console.log(`Error from ${client.name}: ${err}`);
+      }
+    });
+  }
 }).listen({
   port: kTcpPort,
   host: kTcpHost
 });
 
-if (this.options.verbose) {
+if (verbose) {
   console.log(`server listening on port ${kTcpHost}:${kTcpPort}`);
 }
 
-var broadcast = (message) => {
-  clients.forEach((client) => {
-    // console.log(`client:`,client, `sending ${message}`)
-    client.write(message);
-  });
+var writeOutToConnectedClient = (message) => {
+  if (_client) {
+    _client.write(message);
+  } else {
+    throw Error('no connected client');
+  }
 };
 
+/**
+ * Called when a new sample is emitted.
+ * @param sample {Object}
+ *  A sample object.
+ */
 var sampleFunction = (sample) => {
-  var packet = '';
+  let packet = '';
   packet = `${kTcpCmdData},${kTcpCodeSuccess},`;
   packet += sample.sampleNumber;
   for (var j = 0; j < sample.channelData.length; j++) {
@@ -118,7 +134,7 @@ var sampleFunction = (sample) => {
     packet += sample.channelData[j];
   }
   packet += `${kTcpStop}`;
-  broadcast(packet);
+  writeOutToConnectedClient(packet);
 };
 
 var parseMessage = (msg, client) => {
@@ -132,11 +148,11 @@ var parseMessage = (msg, client) => {
         client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
       } else {
         if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
+        ganglion.on(k.OBCIEmitterReady, () => {
+          client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+          ganglion.on('sample', sampleFunction);
+        });
         ganglion.connect(msgElements[1]) // Port name is a serial port name, see `.listPorts()`
-          .then(() => {
-            client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
-            ganglion.on('sample', sampleFunction);
-          })
           .catch((err) => {
             client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
           });
@@ -163,28 +179,12 @@ var parseMessage = (msg, client) => {
         .then(() => {
           client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
         })
-        .catch(() => {
-          client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect}${kTcpStop}`);
+        .catch((err) => {
+          client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
         });
       break;
     case kTcpCmdScan:
-      if (ganglion.isScanning()) {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanAlreadyScanning}${kTcpStop}`);
-      } else {
-        ganglion.listPeripherals()
-          .then((list) => {
-            let output = `${kTcpCmdScan}`;
-            output = `${output},${kTcpCodeSuccess}`;
-            _.each((list, localName) => {
-              output = `${output},${localName}`;
-            });
-            client.write(`${output}${kTcpStop}`);
-          })
-          .catch((err) => {
-            client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoneFound},${err}${kTcpStop}`);
-          });
-        this._nobleScanStart(client);
-      }
+      processScan(msg, client);
       break;
     case kTcpCmdStatus:
       if (ganglion.isConnected()) {
@@ -196,6 +196,53 @@ var parseMessage = (msg, client) => {
     case kTcpCmdError:
     default:
       client.write(`${kTcpCmdError},${kTcpCodeBadPacketData},Error: command not recognized${kTcpStop}`);
+      break;
+  }
+};
+
+const processScan = (msg, client) => {
+  const ganglionFound = (peripheral) => {
+    const localName = peripheral.advertisement.localName;
+    client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${localName}${kTcpStop}`);
+  };
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      if (ganglion.isSearching()) {
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanAlreadyScanning}${kTcpStop}`);
+      } else {
+        ganglion.on(k.OBCIEmitterGanglionFound, ganglionFound);
+        ganglion.searchStart()
+          .then(() => {
+            client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+          })
+          .catch((err) => {
+            ganglion.removeListener(k.OBCIEmitterGanglionFound, ganglionFound);
+            client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoneFound},${err}${kTcpStop}`);
+          });
+      }
+      break;
+    case kTcpActionStatus:
+      if (ganglion.isSearching()) {
+        client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
+      } else {
+        client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+      }
+      break;
+    case kTcpActionStop:
+      if (ganglion.isSearching()) {
+        ganglion.searchStop()
+          .then(() => {
+            ganglion.removeListener(k.OBCIEmitterGanglionFound, ganglionFound);
+            client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+          })
+          .catch((err) => {
+            client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
+          });
+      } else {
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop},${kTcpStop}`);
+      }
       break;
   }
 };
