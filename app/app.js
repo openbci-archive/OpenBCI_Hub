@@ -2,16 +2,12 @@
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var os = _interopDefault(require('os'));
+var os = require('os');
 var net = _interopDefault(require('net'));
 var electron = require('electron');
-var jetpack = _interopDefault(require('fs-jetpack'));
 var openbci = require('openbci');
+var jetpack = _interopDefault(require('fs-jetpack'));
 var _ = require('lodash');
-
-var greet = function () {
-    return 'Hello World!';
-};
 
 // Simple wrapper exposing environment variables to rest of the code.
 
@@ -24,23 +20,23 @@ var env = jetpack.cwd(__dirname).read('env.json', 'json');
 // Use new ES6 modules syntax for everything.
 // native node.js module
 // native electron module
-// module loaded from npm
+// import jetpack from 'fs-jetpack'; // module loaded from npm
 // native npm module
-// code authored by you in this project
+// import { greet } from './hello_world/hello_world'; // code authored by you in this project
 console.log('Loaded environment variables:', env);
 
-const app = electron.remote.app;
-const appDir = jetpack.cwd(app.getAppPath());
+// const app = remote.app;
+// const appDir = jetpack.cwd(app.getAppPath());
 
 // Holy crap! This is browser window with HTML and stuff, but I can read
 // here files like it is node.js! Welcome to Electron world :)
-console.log('The author of this app is:', appDir.read('package.json', 'json').author);
-
-document.addEventListener('DOMContentLoaded', function () {
-  document.getElementById('greet').innerHTML = greet();
-  document.getElementById('platform-info').innerHTML = os.platform();
-  document.getElementById('env-name').innerHTML = env.name;
-});
+// console.log('The author of this app is:', appDir.read('package.json', 'json').author);
+//
+// document.addEventListener('DOMContentLoaded', function () {
+//   document.getElementById('greet').innerHTML = greet();
+//   document.getElementById('platform-info').innerHTML = os.platform();
+//   document.getElementById('env-name').innerHTML = env.name;
+// });
 
 /** TCP */
 const kTcpActionStart = 'start';
