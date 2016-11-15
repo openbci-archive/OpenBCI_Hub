@@ -1,11 +1,11 @@
 {
-  "name": "electron-boilerplate",
-  "productName": "Electron Boilerplate",
-  "description": "Starter for your Electron application",
-  "version": "0.0.0",
-  "author": "Mr. Gumby <mr.gumby@example.com>",
-  "copyright": "© 2016, Gumby inc.",
-  "homepage": "http://example.com",
+  "name": "openbci-ganglion-hub",
+  "productName": "Ganglion Hub",
+  "description": "Hub to use ganglion code",
+  "version": "0.1.0",
+  "author": "AJ Keller <hello@pushtheworld.us>",
+  "copyright": "© 2016, OpenBCI inc.",
+  "homepage": "http://openbci.com",
   "license": "MIT",
   "main": "background.js",
   "dependencies": {
