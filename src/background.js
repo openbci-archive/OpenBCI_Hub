@@ -249,9 +249,17 @@ function exitHandler (options, err) {
   }
 }
 
-let mb = menubar();
+let mb = menubar({
+  icon: './resources/icons/icon.png'
+});
 
 mb.on('ready', function ready () {
-  // console.log('app is ready');
+  console.log('app is ready');
   // your app code here
+});
+
+mb.on('after-close', function () {
+  exitHandler.bind(null, {
+    cleanup: true
+  });
 });

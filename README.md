@@ -64,6 +64,21 @@ npm install
 ```
 It will also download Electron runtime and install dependencies for the second `package.json` file inside the `app` folder.
 
+While the Ganglion code is not merged with the master OpenBCI Node.js SDK, you must locally install the [OpenBCI_NodeJS from AJ Keller
+s github](https://github.com/aj-ptw/OpenBCI_NodeJS) and checkout the `ganglion` branch. Then in the `app/package.json` file you will set to the file location of the `OpenBCI_NodeJS` repo you cloned and checked out the `ganglion` branch on.
+
+For example:
+Joe keeps all his OpenBCI filed in a folder called `openbci`.
+```bash
+$ pwd
+/Users/joe
+$ cd openbci
+$ git clone https://github.com/aj-ptw/OpenBCI_NodeJS
+...........
+$ cd OpenBCI_NodeJS
+$ git checkout ganglion
+```
+
 ### Starting the app
 
 ```
