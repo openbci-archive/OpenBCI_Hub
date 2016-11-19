@@ -1,6 +1,7 @@
 import net from 'net';
 import { Ganglion, k } from 'openbci'; // native npm module
 import menubar from 'menubar';
+import * as _ from 'lodash';
 
 /** TCP */
 const kTcpActionStart = 'start';
@@ -41,6 +42,7 @@ const kTcpStop = ',;\n';
 let verbose = true;
 let ganglion = new Ganglion({
   nobleScanOnPowerOn: false,
+  sendCounts: true,
   verbose: verbose
 });
 
@@ -111,9 +113,9 @@ var sampleFunction = (sample) => {
   let packet = '';
   packet = `${kTcpCmdData},${kTcpCodeSuccess},`;
   packet += sample.sampleNumber;
-  for (var j = 0; j < sample.channelData.length; j++) {
+  for (var j = 0; j < sample.channelDataCounts.length; j++) {
     packet += ',';
-    packet += sample.channelData[j];
+    packet += sample.channelDataCounts[j];
   }
   packet += `${kTcpStop}`;
   writeOutToConnectedClient(packet);

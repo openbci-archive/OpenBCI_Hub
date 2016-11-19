@@ -42,3 +42,4 @@ app/*.js.map
 app/background.js
 dist/
 .DS_Store
+

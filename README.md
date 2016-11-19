@@ -68,13 +68,20 @@ While the Ganglion code is not merged with the master OpenBCI Node.js SDK, you m
 s github](https://github.com/aj-ptw/OpenBCI_NodeJS) and checkout the `ganglion` branch. Then in the `app/package.json` file you will set to the file location of the `OpenBCI_NodeJS` repo you cloned and checked out the `ganglion` branch on.
 
 For example:
-Joe keeps all his OpenBCI filed in a folder called `openbci`.
 ```bash
 $ pwd
 /Users/joe
+$ ls
+$ mkdir openbci
 $ cd openbci
 $ git clone https://github.com/aj-ptw/OpenBCI_NodeJS
-...........
+Cloning into 'OpenBCI_NodeJS'...
+remote: Counting objects: 1595, done.
+remote: Compressing objects: 100% (62/62), done.
+remote: Total 1595 (delta 32), reused 0 (delta 0), pack-reused 1532
+Receiving objects: 100% (1595/1595), 954.51 KiB | 695.00 KiB/s, done.
+Resolving deltas: 100% (1066/1066), done.
+Checking connectivity... done.
 $ cd OpenBCI_NodeJS
 $ git checkout ganglion
 ```
