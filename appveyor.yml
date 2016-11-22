@@ -23,7 +23,8 @@ install:
   - set PATH=%APPDATA%\npm;%PATH%
   - npm install
   - ps: git clone -q --branch=ganglion https://github.com/aj-ptw/OpenBCI_NodeJS.git C:\projects\OpenBCI_NodeJS
-  - npm install C:\projects\OpenBCI_NodeJS
+  - ps: cd app
+  - ps: npm install C:\projects\OpenBCI_NodeJS
 
 test_script:
   - node --version
