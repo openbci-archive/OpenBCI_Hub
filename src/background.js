@@ -61,6 +61,7 @@ net.createServer((client) => {
   if (_.isNull(_client)) {
     _client = client;
     console.log('client set');
+    client.write(`${kTcpCmdStatus},${kTcpCodeSuccess}${kTcpStop}`);
 
     // Handle incoming messages from clients.
     client.on('data', (data) => {
@@ -107,17 +108,28 @@ var writeOutToConnectedClient = (message) => {
 /**
  * Called when a new sample is emitted.
  * @param sample {Object}
+ *  `sampleNumber` {number}
+ *  `channelDataCounts` {Array} Array of counts, no gain.
  *  A sample object.
  */
 var sampleFunction = (sample) => {
-  let packet = '';
-  packet = `${kTcpCmdData},${kTcpCodeSuccess},`;
+  let packet = `${kTcpCmdData},${kTcpCodeSuccess},`;
   packet += sample.sampleNumber;
   for (var j = 0; j < sample.channelDataCounts.length; j++) {
     packet += ',';
     packet += sample.channelDataCounts[j];
   }
   packet += `${kTcpStop}`;
+  writeOutToConnectedClient(packet);
+};
+
+/**
+ * Called when a new message is received by the node driver.
+ * @param message {Buffer}
+ *  The message...
+ */
+var messageFunction = (message) => {
+  const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
   writeOutToConnectedClient(packet);
 };
 
@@ -132,9 +144,10 @@ var parseMessage = (msg, client) => {
         client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
       } else {
         if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
-        ganglion.on(k.OBCIEmitterReady, () => {
+        ganglion.on('ready', () => {
           client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
           ganglion.on('sample', sampleFunction);
+          ganglion.on('message', messageFunction);
         });
         ganglion.connect(msgElements[1]) // Port name is a serial port name, see `.listPorts()`
           .catch((err) => {
@@ -184,6 +197,7 @@ var parseMessage = (msg, client) => {
 const processScan = (msg, client) => {
   const ganglionFound = (peripheral) => {
     const localName = peripheral.advertisement.localName;
+    if (verbose) console.log(`Ganglion found: ${localName}`);
     client.write(`${kTcpCmdScan},${kTcpCodeGanglionFound},${localName}${kTcpStop}`);
   };
   let msgElements = msg.toString().split(',');
@@ -193,6 +207,7 @@ const processScan = (msg, client) => {
       if (ganglion.isSearching()) {
         client.write(`${kTcpCmdScan},${kTcpCodeErrorScanAlreadyScanning}${kTcpStop}`);
       } else {
+        console.log(k.OBCIEmitterGanglionFound);
         ganglion.on(k.OBCIEmitterGanglionFound, ganglionFound);
         ganglion.searchStart()
           .then(() => {
@@ -234,6 +249,8 @@ function exitHandler (options, err) {
     // console.log(connectedPeripheral)
     ganglion.manualDisconnect = true;
     ganglion.disconnect();
+    ganglion.removeAllListeners('sample');
+    ganglion.removeAllListeners('message');
   }
   if (err) console.log(err.stack);
   if (options.exit) {
