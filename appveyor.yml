@@ -18,6 +18,8 @@ install:
   - ps: Install-Product node $env:nodejs_version
   - npm install npm
   - .\node_modules\.bin\npm install
+  - ps: git clone -q --branch=ganglion https://github.com/aj-ptw/OpenBCI_NodeJS.git C:\projects\OpenBCI_NodeJS
+  - .\node_modules\.bin\npm install C:\projects\OpenBCI_NodeJS
 
 test_script:
   - node --version
