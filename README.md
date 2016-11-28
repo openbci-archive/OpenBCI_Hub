@@ -1,7 +1,6 @@
 OpenBCI Ganglion Electron Application
 ==============
 
-
 A minimalistic yet comprehensive boilerplate application for [Electron runtime](http://electron.atom.io). Tested on OSX, Windows and Linux.  
 
 This project does not impose on you any framework (like Angular or React). Instead, it tries to give you only the 'electron' part of technology stack so you can pick your favorite tools for the rest.
@@ -63,28 +62,6 @@ The drawback of this design is that `app` folder contains some files which shoul
 npm install
 ```
 It will also download Electron runtime and install dependencies for the second `package.json` file inside the `app` folder.
-
-While the Ganglion code is not merged with the master OpenBCI Node.js SDK, you must locally install the [OpenBCI_NodeJS from AJ Keller
-s github](https://github.com/aj-ptw/OpenBCI_NodeJS) and checkout the `ganglion` branch. Then in the `app/package.json` file you will set to the file location of the `OpenBCI_NodeJS` repo you cloned and checked out the `ganglion` branch on.
-
-For example:
-```bash
-$ pwd
-/Users/joe
-$ ls
-$ mkdir openbci
-$ cd openbci
-$ git clone https://github.com/aj-ptw/OpenBCI_NodeJS
-Cloning into 'OpenBCI_NodeJS'...
-remote: Counting objects: 1595, done.
-remote: Compressing objects: 100% (62/62), done.
-remote: Total 1595 (delta 32), reused 0 (delta 0), pack-reused 1532
-Receiving objects: 100% (1595/1595), 954.51 KiB | 695.00 KiB/s, done.
-Resolving deltas: 100% (1066/1066), done.
-Checking connectivity... done.
-$ cd OpenBCI_NodeJS
-$ git checkout ganglion
-```
 
 ### Starting the app
 
