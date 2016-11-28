@@ -1,9 +1,8 @@
-os: unstable
-
 environment:
-  matrix:
-    - nodejs_version: 7
-
+  nodejs_version: 7
+platform:
+  - x64
+  - x86
 cache:
   - node_modules -> package.json
   - app/node_modules -> app/package.json
@@ -14,17 +13,29 @@ version: '{build}'
 
 shallow_clone: true
 
-clone_depth: 1
-
+# copied from https://github.com/octoblu/meshblu-connector-ble-heartrate/blob/master/appveyor.yml
 install:
-  - ps: Install-Product node $env:nodejs_version
-  - set CI=true
-  - npm install -g npm@latest
-  - set PATH=%APPDATA%\npm;%PATH%
-  - npm install
-  - ps: git clone -q --branch=ganglion https://github.com/aj-ptw/OpenBCI_NodeJS.git C:\projects\OpenBCI_NodeJS
-  - ps: cd app
-  - ps: npm install C:\projects\OpenBCI_NodeJS
+  - ps: Install-Product node $env:nodejs_version $env:Platform
+  - node --version
+  - npm --version
+  - node -e "console.log(process.arch);"
+  - FOR /F "delims=" %%a IN ('node -e "console.log(require('./package.json').version)"') DO SET PACKAGE_VERSION=%%~a
+  - SET PATH=C:\Program Files (x86)\MSBuild\12.0\bin\;%PATH%
+  - SET GYP_MSVS_VERSION=2013
+  - if "%PLATFORM%" == "x64" set PATH=C:\Python27-x64;%PATH%
+  - if "%PLATFORM%" == "x86" SET PATH=C:\python27;%PATH%
+  - npm install --build-from-source
+  - SET SKIP_REQUIRE_NOBLE=true
+
+#install:
+#  - ps: Install-Product node $env:nodejs_version
+#  - set CI=true
+#  - npm install -g npm@latest
+#  - set PATH=%APPDATA%\npm;%PATH%
+#  - npm install
+#  - ps: git clone -q --branch=ganglion https://github.com/aj-ptw/OpenBCI_NodeJS.git C:\projects\OpenBCI_NodeJS
+#  - ps: cd app
+#  - ps: npm install C:\projects\OpenBCI_NodeJS
 
 test_script:
   - node --version

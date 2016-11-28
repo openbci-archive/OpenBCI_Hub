@@ -1,5 +1,5 @@
 import net from 'net';
-import { Ganglion, k } from 'openbci'; // native npm module
+import { Ganglion, k } from 'openbci-ganglion'; // native npm module
 import menubar from 'menubar';
 import * as _ from 'lodash';
 
@@ -12,7 +12,7 @@ const kTcpCmdCommand = 'k';
 const kTcpCmdData = 't';
 const kTcpCmdDisconnect = 'd';
 const kTcpCmdError = 'e';
-const kTcpCmdImpedance = 'z';
+const kTcpCmdImpedance = 'i';
 const kTcpCmdLog = 'l';
 const kTcpCmdScan = 's';
 const kTcpCmdStatus = 'q';
@@ -133,6 +133,17 @@ var messageFunction = (message) => {
   writeOutToConnectedClient(packet);
 };
 
+/**
+ * Called when a new impedance value is received by the node driver.
+ * @param impedanceObj {Object}
+ *  - `channelNumber` {Number} - Channels 1, 2, 3, 4 or 0 for reference
+ *  - `impedanceValue` {Number} - The impedance value in ohms
+ */
+var impedanceFunction = (impedanceObj) => {
+  const packet = `${kTcpCmdLog},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
+  writeOutToConnectedClient(packet);
+};
+
 var parseMessage = (msg, client) => {
   let msgElements = msg.toString().split(',');
   // var char = String.fromCharCode(msg[0])
@@ -180,6 +191,9 @@ var parseMessage = (msg, client) => {
           client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
         });
       break;
+    case kTcpCmdImpedance:
+      processImpedance(msg, client);
+      break;
     case kTcpCmdScan:
       processScan(msg, client);
       break;
@@ -190,6 +204,33 @@ var parseMessage = (msg, client) => {
     case kTcpCmdError:
     default:
       client.write(`${kTcpCmdError},${kTcpCodeBadPacketData},Error: command not recognized${kTcpStop}`);
+      break;
+  }
+};
+
+const processImpedance = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      ganglion.impedanceStart()
+        .then(() => {
+          ganglion.on(OBCIEmitterImpedance, impedanceFunction);
+          client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+        });
+      break;
+    case kTcpActionStop:
+      ganglion.impedanceStop()
+        .then(() => {
+          ganglion.removeListener(k.OBCIEmitterImpedance, impedanceFunction);
+          client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+        });
       break;
   }
 };
@@ -251,6 +292,7 @@ function exitHandler (options, err) {
     ganglion.disconnect();
     ganglion.removeAllListeners('sample');
     ganglion.removeAllListeners('message');
+    ganglion.removeAllListeners('impedance');
   }
   if (err) console.log(err.stack);
   if (options.exit) {
