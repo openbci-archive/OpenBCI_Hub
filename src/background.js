@@ -1,9 +1,10 @@
 import net from 'net';
-import { Ganglion, k } from 'openbci-ganglion'; // native npm module
+import { Ganglion, Constants } from 'openbci-ganglion'; // native npm module
 import menubar from 'menubar';
 import * as _ from 'lodash';
 
 /** TCP */
+const k = Constants;
 const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
@@ -140,7 +141,7 @@ var messageFunction = (message) => {
  *  - `impedanceValue` {Number} - The impedance value in ohms
  */
 var impedanceFunction = (impedanceObj) => {
-  const packet = `${kTcpCmdLog},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
+  const packet = `${kTcpCmdImpedance},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
   writeOutToConnectedClient(packet);
 };
 
@@ -248,14 +249,13 @@ const processScan = (msg, client) => {
       if (ganglion.isSearching()) {
         client.write(`${kTcpCmdScan},${kTcpCodeErrorScanAlreadyScanning}${kTcpStop}`);
       } else {
-        console.log(k.OBCIEmitterGanglionFound);
         ganglion.on(k.OBCIEmitterGanglionFound, ganglionFound);
         ganglion.searchStart()
           .then(() => {
             client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
           })
           .catch((err) => {
-            ganglion.removeListener(k.OBCIEmitterGanglionFound, ganglionFound);
+            ganglion.removeAllListeners(k.OBCIEmitterGanglionFound);
             client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
           });
       }
