@@ -3,9 +3,6 @@ environment:
 platform:
   - x64
   - x86
-cache:
-  - node_modules -> package.json
-  - app/node_modules -> app/package.json
 
 build: off
 
