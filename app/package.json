@@ -12,6 +12,6 @@
     "fs-jetpack": "^0.9.0",
     "lodash": "^4.16.6",
     "menubar": "^5.1.0",
-    "openbci-ganglion": "^0.1.0"
+    "openbci-ganglion": "^0.1.1"
   }
 }
