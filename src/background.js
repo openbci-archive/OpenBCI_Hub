@@ -216,7 +216,7 @@ const processImpedance = (msg, client) => {
     case kTcpActionStart:
       ganglion.impedanceStart()
         .then(() => {
-          ganglion.on(OBCIEmitterImpedance, impedanceFunction);
+          ganglion.on(k.OBCIEmitterImpedance, impedanceFunction);
           client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch((err) => {

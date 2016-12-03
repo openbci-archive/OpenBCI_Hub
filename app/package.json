@@ -2,7 +2,7 @@
   "name": "openbci-ganglion-hub",
   "productName": "Ganglion Hub",
   "description": "Hub to use ganglion code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "AJ Keller <hello@pushtheworld.us>",
   "copyright": "© 2016, OpenBCI inc.",
   "homepage": "http://openbci.com",
@@ -12,6 +12,6 @@
     "fs-jetpack": "^0.9.0",
     "lodash": "^4.16.6",
     "menubar": "^5.1.0",
-    "openbci-ganglion": "^0.1.1"
+    "openbci-ganglion": "file:/Users/andrewkeller/openbci/OpenBCI_NodeJS_Ganglion"
   }
 }
