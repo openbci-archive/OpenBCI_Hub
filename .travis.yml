@@ -1,33 +1,25 @@
 os:
-  - linux
-  - osx
-
+- linux
+- osx
 branches:
   only:
-    - master
-
+  - master
 env:
-  - NODE_VERSION="6.3.0"
-
-# before_install code came from here: https://github.com/node-inspector/node-inspector/issues/776
-before_install:
-  - sudo apt-get install python-software-properties
-  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-  - sudo apt-get update
-  - sudo apt-get install gcc-5 g++-5
-  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 80 --slave /usr/bin/g++ g++ /usr/bin/g++-5
-  - sudo update-alternatives --set gcc /usr/bin/gcc-5
-
+- NODE_VERSION="6.9.0"
 before_script:
- - chmod +x ./scripts/travis-build.sh
-
+- chmod +x ./scripts/travis-build.sh
 script: ./scripts/travis-build.sh
-
 cache:
   directories:
-    - node_modules
-
+  - node_modules
 notifications:
   email:
     on_success: never
     on_failure: change
+deploy:
+  provider: releases
+  api_key:
+    secure: F73BIw7HI3Ko5t8/bu1ai7vuwd0elZbX6Q6pVBvzaXJOd8opWk2pcYkFBEQMYkH6xVNV2GBwRzbWBR6bjR2BQwqNKb7/nePU8EA7QjaepaFLYaIClHsBtNlsLrkrxbJBwlWAfNswSwDoO4yKyadvUzBesYVNTfo4wBvcQM1FKTOXrQxBJqRM/I1csgM49gxLWqDbU9jPu/O7bQpVzoOmDAt2NrmvGyM67SBMynfbLSWyu+R9XPLjYHoqoM9/jeHiH6JUlmRNqLEN0u6V8PF/QNoqLkVeRKYVkoocieIKxFrdwQOY5bxS8BCDm2Gtd8xQn5iLOo04dQURU5a6dRFaPPKDMaCKeyY6TBXK4oNM4RSONC1N0m7pQx0VHy+lQBoOCA0/tLmDhiei38goBeg+DHVqFMrVTI29YBZq59dn4cbO/Xowz+3VtdJ9HqofjirTSdUMevE6/LYDTYqtZcA3cDAUIIyIb6twZSvYU16sTyAcdrd7ZkQT9fR1J+kkg6RSwIi//5qndfnBj3gz0PQpPiGpo6T4yldIKFd+YnEc3iSEUi/FfEPot0jAa+kLIGMDok3ZSnv5KaDyZJjnsf1lqm3MWbB+ncZBiqEtAwTKIXYpaJDTLalVNhHREH/A86i0wQhgWaK8sO7hnvSuic5NCSaB5a3T2lWJ5QlGqtcnDaw=
+  file: dist/*
+  on:
+    repo: OpenBCI/OpenBCI_Ganglion_Electron

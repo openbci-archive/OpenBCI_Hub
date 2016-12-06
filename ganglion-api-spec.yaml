@@ -1,0 +1,118 @@
+---
+swagger: '2.0'
+info:
+  version: 1.0.0
+  title: OpenBCI Ganglion API
+################################################################################
+#                                 PATHS                                        #
+################################################################################
+
+paths:
+  /s:
+    get:
+      description: Scan for a list of BLE devices
+      responses:
+        200:
+          description: List of ports
+        407:
+          description: No ports found
+        409:
+          description: Already scanning
+  /c:
+    put:
+      description: Open a BLE connection
+      parameters:
+        - name: port
+          in: query
+          description: The name of the BLE device to connect to.
+          type: string
+          required: true
+      responses:
+        200:
+          description: Port name connected to
+        402:
+          description: Unable to open connection to device
+        405:
+          description: Device not found
+        408:
+          description: Already connected to a device
+  /d:
+    delete:
+      description: Close an open BLE connection
+      responses:
+        200:
+          description: Closed connection
+        400:
+          description: No open BLE device
+        401:
+          description: Unable to disconnect from device, try again later.
+  /k:
+    put:
+      description: Send a command to an open BLE device
+      parameters:
+        - name: command
+          in: query
+          description: The command(s) to send to the BLE device
+          type: string
+          required: true
+      responses:
+        200:
+          description: Command sent
+        400:
+          description: No open BLE device
+        406:
+          description: Command not recognized
+  /q:
+    get:
+      description: Get the connection status
+      responses:
+        200:
+          description: true if connected false if not
+  /e:
+    post:
+      description: Error message from
+      parameters:
+        - name: code
+          in: query
+          description: The error code
+          type: integer
+          required: true
+
+        - name: msg
+          in: query
+          description: The plain text error message
+          type: string
+
+      responses:
+        200:
+          description: Error message
+  /t:
+    post:
+      description: Data from the OpenBCI Ganglion board
+      responses:
+        200:
+          description: Good data packet
+        500:
+          description: Bad data packet
+  /i:
+    post:
+      description: Impedance Data from the OpenBCI Ganglion board
+      parameters:
+        - name: channelNumber
+          description: The channel number, either 1, 2, 3, 4 or 0 for reference
+          in: res
+          type: integer
+          required: true
+        - name: impedance value
+          description: The impedance value in ohms
+          in: res
+          type: integer
+          required: true
+  /l:
+    post:
+      description: Log message from the node
+      parameters:
+        - name: msg
+          in: query
+          description: The plain test log message
+          type: string
