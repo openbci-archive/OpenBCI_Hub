@@ -40,8 +40,8 @@ deploy:
   release: myproduct-v$(appveyor_build_version)
   description: 'Release description'
   provider: GitHub
-  auth_token: c74c11171797978d456981bca50151c3d003c60e
-#    secure: <your encrypted token> # your encrypted token from GitHub # c74c11171797978d456981bca50151c3d003c60e
+  auth_token:
+    secure: ent1No7//XcesOZ99kbi76tUtsoYoVzGCc6szPKbiMKRmtI9PxDWl+UVY9ADVo1N
   artifact: /GanglionHub.zip/            # upload all NuGet packages to release assets
   draft: false
   prerelease: false
