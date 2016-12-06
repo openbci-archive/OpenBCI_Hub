@@ -2,7 +2,7 @@
   "name": "openbci-ganglion-hub",
   "productName": "Ganglion Hub",
   "description": "Hub to use ganglion code",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "AJ Keller <hello@pushtheworld.us>",
   "copyright": "© 2016, OpenBCI inc.",
   "homepage": "http://openbci.com",
