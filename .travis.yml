@@ -7,7 +7,7 @@ branches:
     - master
 
 env:
-  - NODE_VERSION="6.3.0"
+  - NODE_VERSION="6.9.0"
 
 # before_install code came from here: https://github.com/node-inspector/node-inspector/issues/776
 before_install:
