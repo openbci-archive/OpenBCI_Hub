@@ -113,7 +113,7 @@ var writeOutToConnectedClient = (message) => {
  *  Array of counts, no gain.
  */
 var accelerometerFunction = (accelDataCounts) => {
-  let packet = `${kTcpCmdAccelerometer},`;
+  let packet = `${kTcpCmdAccelerometer}`;
   for (var j = 0; j < accelDataCounts.length; j++) {
     packet += ',';
     packet += accelDataCounts[j];
