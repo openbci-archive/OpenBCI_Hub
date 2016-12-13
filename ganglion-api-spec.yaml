@@ -108,6 +108,25 @@ paths:
           in: res
           type: integer
           required: true
+  /a:
+    post:
+      description: Accel Data from the OpenBCI Ganglion board
+      parameters:
+        - name: x axis
+          description: The raw counts value of the x axis
+          in: res
+          type: integer
+          required: true
+        - name: y axis
+          description: The raw counts value of the y axis
+          in: res
+          type: integer
+          required: true
+        - name: z axis
+          description: The raw counts value of the z axis
+          in: res
+          type: integer
+          required: true
   /l:
     post:
       description: Log message from the node

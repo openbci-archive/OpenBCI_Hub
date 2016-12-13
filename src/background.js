@@ -8,6 +8,7 @@ const k = Constants;
 const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
+const kTcpCmdAccelerometer = 'a';
 const kTcpCmdConnect = 'c';
 const kTcpCmdCommand = 'k';
 const kTcpCmdData = 't';
@@ -107,6 +108,21 @@ var writeOutToConnectedClient = (message) => {
 };
 
 /**
+ * Called when an accelerometer array is emitted.
+ * @param accelDataCounts {Array}
+ *  Array of counts, no gain.
+ */
+var accelerometerFunction = (accelDataCounts) => {
+  let packet = `${kTcpCmdAccelerometer},`;
+  for (var j = 0; j < accelDataCounts.length; j++) {
+    packet += ',';
+    packet += accelDataCounts[j];
+  }
+  packet += `${kTcpStop}`;
+  writeOutToConnectedClient(packet);
+};
+
+/**
  * Called when a new sample is emitted.
  * @param sample {Object}
  *  `sampleNumber` {number}
@@ -158,6 +174,7 @@ var parseMessage = (msg, client) => {
         if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
         ganglion.on('ready', () => {
           client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+          ganglion.on('accelerometer', accelerometerFunction);
           ganglion.on('sample', sampleFunction);
           ganglion.on('message', messageFunction);
         });
@@ -290,6 +307,7 @@ function exitHandler (options, err) {
     // console.log(connectedPeripheral)
     ganglion.manualDisconnect = true;
     ganglion.disconnect();
+    ganglion.removeAllListeners('accelerometer');
     ganglion.removeAllListeners('sample');
     ganglion.removeAllListeners('message');
     ganglion.removeAllListeners('impedance');

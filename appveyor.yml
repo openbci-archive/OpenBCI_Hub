@@ -37,7 +37,7 @@ artifacts:
     name: GanglionHub
 
 deploy:
-  release: OpenBCI-Ganglion-Hub-v$(appveyor_build_version)
+  release: Ganglion-v$(appveyor_build_version)
   description: 'The OpenBCI ganglion hub'
   provider: GitHub
   auth_token:
