@@ -209,6 +209,9 @@ var parseMessage = (msg, client) => {
           client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
         });
       break;
+    case kTcpCmdAccelerometer:
+      processAccelerometer(msg, client);
+      break;
     case kTcpCmdImpedance:
       processImpedance(msg, client);
       break;
@@ -222,6 +225,25 @@ var parseMessage = (msg, client) => {
     case kTcpCmdError:
     default:
       client.write(`${kTcpCmdError},${kTcpCodeBadPacketData},Error: command not recognized${kTcpStop}`);
+      break;
+  }
+};
+
+const processAccelerometer = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      ganglion.accelStart()
+        .catch((err) => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+        });
+      break;
+    case kTcpActionStop:
+      ganglion.accelStop()
+        .catch((err) => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+        });
       break;
   }
 };

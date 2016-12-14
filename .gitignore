@@ -43,3 +43,4 @@ app/background.js
 dist/
 .DS_Store
 
+app/resources

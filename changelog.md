@@ -1,3 +1,11 @@
+# 0.1.4
+
+### New Features
+* Add Accel
+
+### Bug Fixes
+* Ganglion could not connect twice.
+
 # 0.1.3
 
 ### Bug Fixes

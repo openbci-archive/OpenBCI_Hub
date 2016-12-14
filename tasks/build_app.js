@@ -30,6 +30,8 @@ gulp.task('less', function () {
 gulp.task('environment', function () {
     var configFile = 'config/env_' + utils.getEnvName() + '.json';
     projectDir.copy(configFile, destDir.path('env.json'), { overwrite: true });
+    projectDir.copy('resources/icons/icon.png', destDir.path('resources/icons/icon.png'), { overwrite: true });
+    projectDir.copy('resources/icons/icon@2x.png', destDir.path('resources/icons/icon@2x.png'), { overwrite: true });
 });
 
 gulp.task('watch', function () {
