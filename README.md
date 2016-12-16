@@ -12,6 +12,7 @@ Then type few commands known to every Node developer...
 git clone https://github.com/OpenBCI/OpenBCI_Ganglion_Electron.git
 cd OpenBCI_Ganglion_Electron
 npm install
+npm install electron-prebuilt -g
 npm start
 ```
 ... and boom! You have a running desktop application on your screen.

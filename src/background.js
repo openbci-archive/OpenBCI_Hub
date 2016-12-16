@@ -178,10 +178,20 @@ var parseMessage = (msg, client) => {
           ganglion.on('sample', sampleFunction);
           ganglion.on('message', messageFunction);
         });
-        ganglion.connect(msgElements[1]) // Port name is a serial port name, see `.listPorts()`
-          .catch((err) => {
-            client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
-          });
+        if (ganglion.isSearching()) {
+          ganglion.searchStop()
+            .then(() => {
+              return ganglion.connect(msgElements[1]); // Port name is a serial port name, see `.listPorts()`
+            })
+            .catch((err) => {
+              client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+            });
+        } else {
+          ganglion.connect(msgElements[1]) // Port name is a serial port name, see `.listPorts()`
+            .catch((err) => {
+              client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+            });
+        }
       }
       break;
     case kTcpCmdCommand:

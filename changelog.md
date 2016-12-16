@@ -1,3 +1,11 @@
+# 0.1.5
+
+### Enhancements
+* Bump `openbci-ganglion` to `0.3.3`
+
+### Bug Fixes
+* Ganglion could not stop seaching.
+
 # 0.1.4
 
 ### New Features
