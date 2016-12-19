@@ -1,3 +1,20 @@
+# 0.1.6
+
+### Enhancements
+* Bump `openbci-ganglion` to `0.3.6`
+
+### Bug Fixes
+* Ganglion would not disconnect.
+* Change Appveyor to Node 6
+
+# 0.1.5
+
+### Enhancements
+* Bump `openbci-ganglion` to `0.3.3`
+
+### Bug Fixes
+* Ganglion could not stop seaching.
+
 # 0.1.4
 
 ### New Features
