@@ -167,32 +167,7 @@ var parseMessage = (msg, client) => {
   // console.log('msgElements[0]',msgElements[0],char)
   switch (msgElements[0]) {
     case kTcpCmdConnect:
-      if (ganglion.isConnected()) {
-        if (verbose) console.log('already connected');
-        client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
-      } else {
-        if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
-        ganglion.on('ready', () => {
-          client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
-          ganglion.on('accelerometer', accelerometerFunction);
-          ganglion.on('sample', sampleFunction);
-          ganglion.on('message', messageFunction);
-        });
-        if (ganglion.isSearching()) {
-          ganglion.searchStop()
-            .then(() => {
-              return ganglion.connect(msgElements[1]); // Port name is a serial port name, see `.listPorts()`
-            })
-            .catch((err) => {
-              client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
-            });
-        } else {
-          ganglion.connect(msgElements[1]) // Port name is a serial port name, see `.listPorts()`
-            .catch((err) => {
-              client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
-            });
-        }
-      }
+      processConnect(msg, client);
       break;
     case kTcpCmdCommand:
       if (ganglion.isConnected()) {
@@ -210,14 +185,7 @@ var parseMessage = (msg, client) => {
       }
       break;
     case kTcpCmdDisconnect:
-      ganglion.manualDisconnect = true;
-      ganglion.disconnect(true)
-        .then(() => {
-          client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
-        })
-        .catch((err) => {
-          client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
-        });
+      processDisconnect(msg, client);
       break;
     case kTcpCmdAccelerometer:
       processAccelerometer(msg, client);
@@ -256,6 +224,58 @@ const processAccelerometer = (msg, client) => {
         });
       break;
   }
+};
+
+const processConnect = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  if (ganglion.isConnected()) {
+    if (verbose) console.log('already connected');
+    client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
+  } else {
+    if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
+    ganglion.once('ready', () => {
+      if (verbose) console.log('ready!');
+      client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+      ganglion.on('accelerometer', accelerometerFunction);
+      ganglion.on('sample', sampleFunction);
+      ganglion.on('message', messageFunction);
+    });
+    if (ganglion.isSearching()) {
+      ganglion.searchStop()
+        .then(() => {
+          return ganglion.connect(msgElements[1]); // Port name is a serial port name, see `.listPorts()`
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+        });
+    } else {
+      ganglion.connect(msgElements[1]) // Port name is a serial port name, see `.listPorts()`
+        .catch((err) => {
+          client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+        });
+    }
+  }
+};
+
+/**
+ * For processing incoming disconnect commands
+ * @param msg {String} - The actual message
+ * @param client {Object} - writable TCP client
+ */
+const processDisconnect = (msg, client) => {
+  ganglion.manualDisconnect = true;
+  ganglion.once('close', () => {
+    if (verbose) console.log('close event fired');
+    ganglion.removeAllListeners('accelerometer');
+    ganglion.removeAllListeners('sample');
+    ganglion.removeAllListeners('message');
+    ganglion.removeAllListeners('impedance');
+    client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+  });
+  ganglion.disconnect(true)
+    .catch((err) => {
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
+    });
 };
 
 const processImpedance = (msg, client) => {
