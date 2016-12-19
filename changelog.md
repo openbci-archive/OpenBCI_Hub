@@ -1,3 +1,8 @@
+# 0.2.0
+
+### Bug Fixes
+* Disconnect did not clean up event emitters added in connect.
+
 # 0.1.6
 
 ### Enhancements
