@@ -211,7 +211,7 @@ var parseMessage = (msg, client) => {
       break;
     case kTcpCmdDisconnect:
       ganglion.manualDisconnect = true;
-      ganglion.disconnect()
+      ganglion.disconnect(true)
         .then(() => {
           client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
         })
