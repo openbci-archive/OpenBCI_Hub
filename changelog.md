@@ -1,7 +1,36 @@
+# 0.2.3
+
+### Enhancements
+* Calling connect with device name now performs a scan to ensure that device is really still available to connect to.
+
+### Bug Fixes
+* Calling connect with timeout caused another bug, for timeout.
+
+# 0.2.2
+
+### Enhancements
+* Bump `openbci-ganglion` to `0.4.1`.
+* Calling connect now has a timeout!
+
+### Bug Fixes
+* Dropped connections now eject a message out to connected client.
+
+# 0.2.1
+
+### Bug Fixes
+* `ganglionFound` event emitter was not removed on start of new scan.
+
+### Enhancements
+* Disabled verbose print out for production build.
+* Bump `openbci-ganglion` to `0.3.8`.
+
 # 0.2.0
 
 ### Bug Fixes
 * Disconnect did not clean up event emitters added in connect.
+
+### Enhancements
+* Bump `openbci-ganglion` to `0.3.7`
 
 # 0.1.6
 

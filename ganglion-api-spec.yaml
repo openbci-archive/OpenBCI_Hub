@@ -36,6 +36,8 @@ paths:
           description: Device not found
         408:
           description: Already connected to a device
+        413:
+          description: Timeout connecting to device
   /d:
     delete:
       description: Close an open BLE connection
