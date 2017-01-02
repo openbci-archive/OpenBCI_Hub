@@ -31,13 +31,14 @@ test_script:
 #  - npm run build
 #  - npm run test-e2e
   - npm run release
+  - if "%PLATFORM%" == "x64" npm run release-win32
 
 artifacts:
   - path: dist
     name: GanglionHub
 
 deploy:
-  release: Ganglion-v$(appveyor_build_version)
+  release: Ganglion-${platform}-v$(appveyor_build_version)
   description: 'The OpenBCI ganglion hub'
   provider: GitHub
   auth_token:

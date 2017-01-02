@@ -42,7 +42,7 @@ const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpStop = ',;\n';
 
-let verbose = true;
+let verbose = false;
 let ganglion = new Ganglion({
   nobleScanOnPowerOn: false,
   sendCounts: true,
