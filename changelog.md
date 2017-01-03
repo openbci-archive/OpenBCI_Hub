@@ -1,3 +1,11 @@
+# 0.3.0
+
+### Enhancements
+* Standardization of Specification. 
+
+### Breaking changes
+* Accelerometer, Impedance, and Sample data all have specific success error codes: 202, 203, and 204 respectively. Prior to this version all were using the same 200 code. 
+
 # 0.2.3
 
 ### Enhancements
