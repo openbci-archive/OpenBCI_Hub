@@ -20,15 +20,22 @@ const kTcpCmdScan = 's';
 const kTcpCmdStatus = 'q';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeSuccess = 200;
-const kTcpCodeGanglionFound = 201;
+const kTcpCodeSuccessGanglionFound = 201;
+const kTcpCodeSuccessAccelData = 202;
+const kTcpCodeSuccessSampleData = 204;
+const kTcpCodeSuccessImpedanceData = 203;
 const kTcpCodeStatusConnected = 300;
 const kTcpCodeStatusDisconnected = 301;
 const kTcpCodeStatusScanning = 302;
 const kTcpCodeStatusNotScanning = 303;
 const kTcpCodeErrorUnknown = 499;
 const kTcpCodeErrorAlreadyConnected = 408;
-const kTcpCodeErrorCommandNotRecognized = 406;
+const kTcpCodeErrorAccelerometerCouldNotStart = 416;
+const kTcpCodeErrorAccelerometerCouldNotStop = 417;
+const kTcpCodeErrorCommandNotAbleToBeSent = 406;
 const kTcpCodeErrorDeviceNotFound = 405;
+const kTcpCodeErrorImpedanceCouldNotStart = 414;
+const kTcpCodeErrorImpedanceCouldNotStop = 415;
 const kTcpCodeErrorNoOpenBleDevice = 400;
 const kTcpCodeErrorUnableToConnect = 402;
 const kTcpCodeErrorUnableToConnectTimeout = 413;
@@ -98,7 +105,7 @@ if (verbose) {
  *  Array of counts, no gain.
  */
 var accelerometerFunction = (client, accelDataCounts) => {
-  let packet = `${kTcpCmdAccelerometer}`;
+  let packet = `${kTcpCmdAccelerometer},${kTcpCodeSuccessAccelData}`;
   for (var j = 0; j < accelDataCounts.length; j++) {
     packet += ',';
     packet += accelDataCounts[j];
@@ -117,7 +124,7 @@ var accelerometerFunction = (client, accelDataCounts) => {
  *  A sample object.
  */
 var sampleFunction = (client, sample) => {
-  let packet = `${kTcpCmdData},${kTcpCodeSuccess},`;
+  let packet = `${kTcpCmdData},${kTcpCodeSuccessSampleData},`;
   packet += sample.sampleNumber;
   for (var j = 0; j < sample.channelDataCounts.length; j++) {
     packet += ',';
@@ -148,7 +155,7 @@ var messageFunction = (client, message) => {
  *  - `impedanceValue` {Number} - The impedance value in ohms
  */
 var impedanceFunction = (client, impedanceObj) => {
-  const packet = `${kTcpCmdImpedance},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
+  const packet = `${kTcpCmdImpedance},${kTcpCodeSuccessImpedanceData},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
   client.write(packet);
 };
 
@@ -177,8 +184,8 @@ var parseMessage = (msg, client) => {
             client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
           })
           .catch((err) => {
-            if (verbose) console.log('sendCharacteristic not set');
-            client.write(`${kTcpCmdError},${err}${kTcpStop}`);
+            if (verbose) console.log('unable to write command', err);
+            client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
           });
       } else {
         client.write(`${kTcpCmdCommand},${kTcpCodeErrorNoOpenBleDevice}${kTcpStop}`);
@@ -213,14 +220,20 @@ const processAccelerometer = (msg, client) => {
   switch (action) {
     case kTcpActionStart:
       ganglion.accelStart()
+        .then(() => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
         .catch((err) => {
-          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStart},${err}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
       ganglion.accelStop()
+        .then(() => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
         .catch((err) => {
-          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStop},${err}${kTcpStop}`);
         });
       break;
   }
@@ -234,8 +247,7 @@ const processConnect = (msg, client) => {
   } else {
     if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
     if (ganglion.isSearching()) {
-      ganglion.removeAllListeners(k.OBCIEmitterGanglionFound);
-      ganglion.searchStop()
+      _scanStop(client, false)
         .then(() => {
           _verifyDeviceBeforeConnect(msgElements[1], client);
           return Promise.resolve();
@@ -309,6 +321,9 @@ const _connect = (peripheralName, client) => {
 const processDisconnect = (msg, client) => {
   ganglion.manualDisconnect = true;
   ganglion.disconnect(true)
+    .then(() => {
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
+    })
     .catch((err) => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
     });
@@ -325,7 +340,7 @@ const processImpedance = (msg, client) => {
           client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStart},${err}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
@@ -335,7 +350,7 @@ const processImpedance = (msg, client) => {
           client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorUnknown},${err}${kTcpStop}`);
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStop},${err}${kTcpStop}`);
         });
       break;
   }
@@ -345,7 +360,7 @@ const _scanStart = (client) => {
   const ganglionFound = (peripheral) => {
     const localName = peripheral.advertisement.localName;
     if (verbose) console.log(`Ganglion found: ${localName}`);
-    client.write(`${kTcpCmdScan},${kTcpCodeGanglionFound},${localName}${kTcpStop}`);
+    client.write(`${kTcpCmdScan},${kTcpCodeSuccessGanglionFound},${localName}${kTcpStop}`);
   };
   return new Promise((resolve, reject) => {
     ganglion.on(k.OBCIEmitterGanglionFound, ganglionFound);
@@ -365,12 +380,20 @@ const _scanStart = (client) => {
   });
 };
 
-const _scanStop = (client) => {
+/**
+ * Stop a scan
+ * @param client
+ * @param writeOutMessage
+ * @return {Promise}
+ * @private
+ */
+const _scanStop = (client, writeOutMessage) => {
   return new Promise((resolve, reject) => {
+    if (_.isUndefined(writeOutMessage)) writeOutMessage = true;
     ganglion.removeAllListeners(k.OBCIEmitterGanglionFound);
     ganglion.searchStop()
       .then(() => {
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         resolve();
       })
       .catch((err) => {
@@ -386,7 +409,7 @@ const processScan = (msg, client) => {
   switch (action) {
     case kTcpActionStart:
       if (ganglion.isSearching()) {
-        _scanStop(client)
+        _scanStop(client, false)
           .then(() => {
             if (verbose) console.log('scan stopped first');
             return _scanStart(client);
@@ -416,7 +439,7 @@ const processScan = (msg, client) => {
       break;
     case kTcpActionStop:
       if (ganglion.isSearching()) {
-        _scanStop(client)
+        _scanStop(client, true)
           .then(() => {
             if (verbose) console.log(`stopped scan`);
           })

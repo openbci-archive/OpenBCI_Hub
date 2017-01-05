@@ -10,14 +10,14 @@ info:
 paths:
   /s:
     get:
-      description: Scan for a list of BLE devices
+      description: Scan for Ganglion BLE devices and when found, send their local names to requesting client.
       responses:
         200:
-          description: List of ports
-        407:
-          description: No ports found
-        409:
-          description: Already scanning
+          description: The scan was started
+        201:
+          description: A device was discovered.
+        412:
+          description: Unable to start scanning
   /c:
     put:
       description: Open a BLE connection
