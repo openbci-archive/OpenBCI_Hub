@@ -30,8 +30,8 @@ test_script:
 #  - npm run test
 #  - npm run build
 #  - npm run test-e2e
-  - npm run release
-  - if "%PLATFORM%" == "x64" npm run release-win32
+  - if "%PLATFORM%" == "x86" npm run release-win32
+  - if "%PLATFORM%" == "x64" npm run release
 
 artifacts:
   - path: dist
