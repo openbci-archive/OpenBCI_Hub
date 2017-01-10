@@ -26,12 +26,7 @@ install:
 
 test_script:
   - node --version
-#  - npm run lint
-#  - npm run test
-#  - npm run build
-#  - npm run test-e2e
-  - if "%PLATFORM%" == "x86" npm run release-win32
-  - if "%PLATFORM%" == "x64" npm run release
+  - npm run release
 
 artifacts:
   - path: dist
