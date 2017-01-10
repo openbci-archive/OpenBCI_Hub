@@ -41,6 +41,7 @@ jspm_packages
 app/*.js.map
 app/background.js
 dist/
+/app/env.json
 .DS_Store
 
 app/resources

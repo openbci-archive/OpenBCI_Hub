@@ -1,3 +1,8 @@
+# 0.3.1
+
+### Enhancements
+* Building the proper builds by tweaking appveryor. 
+
 # 0.3.0
 
 ### Enhancements
