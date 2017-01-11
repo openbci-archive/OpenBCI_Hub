@@ -1,3 +1,8 @@
+# 0.4.0
+
+### Breaking Changes
+* Changed name of built app from `Ganglion Hub` to `GanglionHub`. 
+
 # 0.3.1
 
 ### Enhancements
