@@ -49,7 +49,7 @@ const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpStop = ',;\n';
 
-let verbose = false;
+let verbose = true;
 let ganglion = new Ganglion({
   nobleScanOnPowerOn: false,
   sendCounts: true,
@@ -81,6 +81,13 @@ net.createServer((client) => {
     client.removeAllListeners('data');
     client.removeAllListeners('end');
     client.removeAllListeners('error');
+    if (ganglion.isConnected()) {
+      ganglion.manualDisconnect = true;
+      ganglion.disconnect(true)
+        .catch((err) => {
+          if (verbose) console.log(err);
+        })
+    }
   });
 
   client.on('error', (err) => {
@@ -165,7 +172,9 @@ var closeFunction = (client) => {
   ganglion.removeAllListeners('sample');
   ganglion.removeAllListeners('message');
   ganglion.removeAllListeners('impedance');
-  client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+  if (!client.destroyed) {
+    client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+  }
 };
 
 var parseMessage = (msg, client) => {

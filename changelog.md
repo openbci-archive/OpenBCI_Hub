@@ -3,6 +3,9 @@
 ### Breaking Changes
 * Changed name of built app from `Ganglion Hub` to `GanglionHub`. 
 
+### Bug Fixes
+* On client leave if ganglion is connected, the connection will close.
+
 # 0.3.1
 
 ### Enhancements
