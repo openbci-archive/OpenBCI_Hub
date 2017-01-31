@@ -19,6 +19,7 @@ const kTcpCmdLog = 'l';
 const kTcpCmdScan = 's';
 const kTcpCmdStatus = 'q';
 const kTcpCodeBadPacketData = 500;
+const kTcpCodeBadBLEStartUp = 501;
 const kTcpCodeSuccess = 200;
 const kTcpCodeSuccessGanglionFound = 201;
 const kTcpCodeSuccessAccelData = 202;
@@ -49,11 +50,15 @@ const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpStop = ',;\n';
 
-let verbose = true;
+let verbose = false;
+let ganglionHubError;
 let ganglion = new Ganglion({
   nobleScanOnPowerOn: false,
   sendCounts: true,
   verbose: verbose
+}, (error) => {
+  // Need to send out error to clients when they connect that there is a bad inner noble
+  ganglionHubError = error;
 });
 
 // Start a TCP Server
@@ -63,7 +68,11 @@ net.createServer((client) => {
 
   if (verbose) console.log(`Welcome ${client.name}`);
 
-  client.write(`${kTcpCmdStatus},${kTcpCodeSuccess}${kTcpStop}`);
+  if (ganglionHubError) {
+    client.write(`${kTcpCmdStatus},${kTcpCodeBadBLEStartUp}${kTcpStop}`);
+  } else {
+    client.write(`${kTcpCmdStatus},${kTcpCodeSuccess}${kTcpStop}`);
+  }
 
   // Handle incoming messages from clients.
   client.on('data', (data) => {
