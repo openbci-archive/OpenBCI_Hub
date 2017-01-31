@@ -1,3 +1,11 @@
+# 0.4.1
+
+### New Features
+* BLE error on start up now sends error 
+
+### Bug Fixes
+* Fixes #12 - Absorb 'no valid USB' found and send log
+
 # 0.4.0
 
 ### Breaking Changes
