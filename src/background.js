@@ -2,6 +2,9 @@ import net from 'net';
 import { Ganglion, Constants } from 'openbci-ganglion'; // native npm module
 import menubar from 'menubar';
 import * as _ from 'lodash';
+import JSONStream from 'json-stream';
+import http from 'http';
+import ip from 'ip';
 
 /** TCP */
 const k = Constants;
@@ -50,7 +53,12 @@ const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpStop = ',;\n';
 
-let verbose = false;
+let verbose = true;
+let streamJSON = JSONStream();
+streamJSON.on("data", (sample) => {
+  console.log(JSON.stringify(sample));
+});
+
 let ganglionHubError;
 let ganglion = new Ganglion({
   nobleScanOnPowerOn: false,
@@ -112,6 +120,147 @@ net.createServer((client) => {
 if (verbose) {
   console.log(`server listening on port ${kTcpHost}:${kTcpPort}`);
 }
+
+let persistentBuffer = null;
+const delimBuf = new Buffer("\r\n");
+
+// Start a TCP Server
+let wifiServer = net.createServer((client) => {
+  // Identify this client
+  client.name = `${client.remoteAddress}:${client.remotePort}`;
+
+  if (verbose) console.log(`Welcome ${client.name}`);
+
+
+  // Handle incoming messages from clients.
+  client.on('data', (data) => {
+    if (persistentBuffer !== null) persistentBuffer = Buffer.concat([persistentBuffer, data]);
+    else persistentBuffer = data;
+
+    if (persistentBuffer) {
+      let bytesIn = persistentBuffer.byteLength;
+      if (bytesIn > 2) {
+        let head = 2;
+        let tail = 0;
+        while (head < bytesIn - 2) {
+          if (delimBuf.compare(persistentBuffer, head-2, head) === 0) {
+            try {
+              const obj = JSON.parse(persistentBuffer.slice(tail, head-2));
+              console.log(persistentBuffer.slice(tail, head-2).toString());
+              if (head < bytesIn - 2) {
+                tail = head;
+              }
+            } catch (e) {
+              console.log(persistentBuffer.slice(tail, head-2).toString());
+              persistentBuffer = persistentBuffer.slice(head);
+              return;
+            }
+
+          }
+          head++;
+        }
+
+        if (tail < bytesIn - 2) {
+          persistentBuffer = persistentBuffer.slice(tail);
+        } else {
+          persistentBuffer = null;
+        }
+
+      }
+    }
+  });
+
+  // Remove the client from the list when it leaves
+  client.on('end', () => {
+    if (verbose) {
+      console.log(`${client.name} has left`);
+    }
+    client.removeAllListeners('data');
+    client.removeAllListeners('end');
+    client.removeAllListeners('error');
+  });
+
+  client.on('error', (err) => {
+    if (verbose) {
+      console.log(`Error from ${client.name}: ${err}`);
+    }
+  });
+}).listen();
+
+if (verbose) {
+  console.log(`wifi server listening on port ${ip.address()}:${wifiServer.address().port}`);
+}
+
+
+const wifiProcessResponse = (res, cb) => {
+  if (verbose) {
+    console.log(`STATUS: ${res.statusCode}`);
+    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+  }
+  res.setEncoding('utf8');
+  let msg = '';
+  res.on('data', (chunk) => {
+    if (verbose) console.log(`BODY: ${chunk}`);
+    msg += chunk.toString();
+  });
+  res.once('end', () => {
+    if (verbose) console.log('No more data in response.');
+    console.log('res', msg);
+    if (res.statusCode !== 200) {
+      if (cb) cb(msg);
+    } else {
+      if (cb) cb();
+    }
+  });
+};
+
+const wifiPost = (host, path, payload, cb) => {
+  const output = JSON.stringify(payload);
+  const options = {
+    host: host,
+    port: 80,
+    path: path,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': output.length
+    }
+  };
+
+  const req = http.request(options, (res) => {
+    wifiProcessResponse(res, (err) => {
+      if (err) {
+        if (cb) cb(err);
+      } else {
+        if (cb) cb();
+      }
+    });
+  });
+
+  req.once('error', (e) => {
+    if (verbose) console.log(`problem with request: ${e.message}`);
+    if (cb) cb(e);
+  });
+
+  // write data to request body
+  req.write(output);
+  req.end();
+};
+
+let shield_uuid = "openbci-2af1.local";
+wifiPost(shield_uuid, '/tcp', {
+  ip: ip.address(),
+  output: "json",
+  port: wifiServer.address().port,
+  delimiter: true,
+  latency: 10000
+}, (err) => {
+  if (err) console. log("err", err);
+  else {
+    wifiPost(shield_uuid, '/command', {'command': '[b'});
+
+  }
+});
 
 /**
  * Called when an accelerometer array is emitted.
@@ -475,6 +624,8 @@ function exitHandler (options, err) {
   if (options.cleanup) {
     if (verbose) console.log('clean');
     // console.log(connectedPeripheral)
+    streamJSON.removeAllListeners('data');
+    streamJSON = null;
     ganglion.manualDisconnect = true;
     ganglion.disconnect();
     ganglion.removeAllListeners('accelerometer');
