@@ -19,6 +19,7 @@ const kTcpCmdDisconnect = 'd';
 const kTcpCmdError = 'e';
 const kTcpCmdImpedance = 'i';
 const kTcpCmdLog = 'l';
+const kTcpCmdProtocol = 'p';
 const kTcpCmdScan = 's';
 const kTcpCmdStatus = 'q';
 const kTcpCodeBadPacketData = 500;
@@ -41,6 +42,8 @@ const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
 const kTcpCodeErrorImpedanceCouldNotStop = 415;
 const kTcpCodeErrorNoOpenBleDevice = 400;
+const kTcpCodeErrorProtocolUnknown = 418;
+const kTcpCodeErrorProtocolBLEStart = 419;
 const kTcpCodeErrorUnableToConnect = 402;
 const kTcpCodeErrorUnableToConnectTimeout = 413;
 const kTcpCodeErrorUnableToDisconnect = 401;
@@ -51,6 +54,8 @@ const kTcpCodeErrorScanCouldNotStart = 412;
 const kTcpCodeErrorScanCouldNotStop = 411;
 const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
+const kTcpProtocolBLE = 'ble';
+const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
 
 let verbose = true;
@@ -59,15 +64,11 @@ streamJSON.on("data", (sample) => {
   console.log(JSON.stringify(sample));
 });
 
+let curTcpProtocol = kTcpProtocolBLE;
+
 let ganglionHubError;
-let ganglion = new Ganglion({
-  nobleScanOnPowerOn: false,
-  sendCounts: true,
-  verbose: verbose
-}, (error) => {
-  // Need to send out error to clients when they connect that there is a bad inner noble
-  ganglionHubError = error;
-});
+let ganglionBLE = null;
+
 
 // Start a TCP Server
 net.createServer((client) => {
@@ -98,9 +99,9 @@ net.createServer((client) => {
     client.removeAllListeners('data');
     client.removeAllListeners('end');
     client.removeAllListeners('error');
-    if (ganglion.isConnected()) {
-      ganglion.manualDisconnect = true;
-      ganglion.disconnect(true)
+    if (ganglionBLE.isConnected()) {
+      ganglionBLE.manualDisconnect = true;
+      ganglionBLE.disconnect(true)
         .catch((err) => {
           if (verbose) console.log(err);
         })
@@ -125,71 +126,7 @@ let persistentBuffer = null;
 const delimBuf = new Buffer("\r\n");
 
 // Start a TCP Server
-let wifiServer = net.createServer((client) => {
-  // Identify this client
-  client.name = `${client.remoteAddress}:${client.remotePort}`;
-
-  if (verbose) console.log(`Welcome ${client.name}`);
-
-
-  // Handle incoming messages from clients.
-  client.on('data', (data) => {
-    if (persistentBuffer !== null) persistentBuffer = Buffer.concat([persistentBuffer, data]);
-    else persistentBuffer = data;
-
-    if (persistentBuffer) {
-      let bytesIn = persistentBuffer.byteLength;
-      if (bytesIn > 2) {
-        let head = 2;
-        let tail = 0;
-        while (head < bytesIn - 2) {
-          if (delimBuf.compare(persistentBuffer, head-2, head) === 0) {
-            try {
-              const obj = JSON.parse(persistentBuffer.slice(tail, head-2));
-              console.log(persistentBuffer.slice(tail, head-2).toString());
-              if (head < bytesIn - 2) {
-                tail = head;
-              }
-            } catch (e) {
-              console.log(persistentBuffer.slice(tail, head-2).toString());
-              persistentBuffer = persistentBuffer.slice(head);
-              return;
-            }
-
-          }
-          head++;
-        }
-
-        if (tail < bytesIn - 2) {
-          persistentBuffer = persistentBuffer.slice(tail);
-        } else {
-          persistentBuffer = null;
-        }
-
-      }
-    }
-  });
-
-  // Remove the client from the list when it leaves
-  client.on('end', () => {
-    if (verbose) {
-      console.log(`${client.name} has left`);
-    }
-    client.removeAllListeners('data');
-    client.removeAllListeners('end');
-    client.removeAllListeners('error');
-  });
-
-  client.on('error', (err) => {
-    if (verbose) {
-      console.log(`Error from ${client.name}: ${err}`);
-    }
-  });
-}).listen();
-
-if (verbose) {
-  console.log(`wifi server listening on port ${ip.address()}:${wifiServer.address().port}`);
-}
+let wifiServer = null;
 
 
 const wifiProcessResponse = (res, cb) => {
@@ -257,8 +194,7 @@ wifiPost(shield_uuid, '/tcp', {
 }, (err) => {
   if (err) console. log("err", err);
   else {
-    wifiPost(shield_uuid, '/command', {'command': '[b'});
-
+    wifiPost(shield_uuid, '/command', {'command': 'b'});
   }
 });
 
@@ -326,10 +262,10 @@ var impedanceFunction = (client, impedanceObj) => {
 
 var closeFunction = (client) => {
   if (verbose) console.log('close event fired');
-  ganglion.removeAllListeners('accelerometer');
-  ganglion.removeAllListeners('sample');
-  ganglion.removeAllListeners('message');
-  ganglion.removeAllListeners('impedance');
+  ganglionBLE.removeAllListeners('accelerometer');
+  ganglionBLE.removeAllListeners('sample');
+  ganglionBLE.removeAllListeners('message');
+  ganglionBLE.removeAllListeners('impedance');
   if (!client.destroyed) {
     client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
   }
@@ -344,8 +280,8 @@ var parseMessage = (msg, client) => {
       processConnect(msg, client);
       break;
     case kTcpCmdCommand:
-      if (ganglion.isConnected()) {
-        ganglion.write(msgElements[1])
+      if (ganglionBLE.isConnected()) {
+        ganglionBLE.write(msgElements[1])
           .then(() => {
             if (verbose) console.log(`sent ${msgElements[1]} to Ganglion`);
             client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
@@ -367,6 +303,9 @@ var parseMessage = (msg, client) => {
     case kTcpCmdImpedance:
       processImpedance(msg, client);
       break;
+    case kTcpCmdProtocol:
+      processProtocol(msg, client);
+      break;
     case kTcpCmdScan:
       processScan(msg, client);
       break;
@@ -386,7 +325,7 @@ const processAccelerometer = (msg, client) => {
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      ganglion.accelStart()
+      ganglionBLE.accelStart()
         .then(() => {
           client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
@@ -395,7 +334,7 @@ const processAccelerometer = (msg, client) => {
         });
       break;
     case kTcpActionStop:
-      ganglion.accelStop()
+      ganglionBLE.accelStop()
         .then(() => {
           client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
@@ -408,12 +347,12 @@ const processAccelerometer = (msg, client) => {
 
 const processConnect = (msg, client) => {
   let msgElements = msg.toString().split(',');
-  if (ganglion.isConnected()) {
+  if (ganglionBLE.isConnected()) {
     if (verbose) console.log('already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
     if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
-    if (ganglion.isSearching()) {
+    if (ganglionBLE.isSearching()) {
       _scanStop(client, false)
         .then(() => {
           _verifyDeviceBeforeConnect(msgElements[1], client);
@@ -421,7 +360,7 @@ const processConnect = (msg, client) => {
         })
         .catch((err) => {
           client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
-          ganglion.removeAllListeners('ready');
+          ganglionBLE.removeAllListeners('ready');
         });
     } else {
       _verifyDeviceBeforeConnect(msgElements[1], client);
@@ -435,48 +374,48 @@ const _verifyDeviceBeforeConnect = (peripheralName, client) => {
     const localName = peripheral.advertisement.localName;
     if (localName === peripheralName) {
       if (verbose) console.log(`Verify - Ganglion found: ${localName}`);
-      ganglion.removeAllListeners('ganglionFound');
+      ganglionBLE.removeAllListeners('ganglionFound');
       ganglionVerified = true;
-      ganglion.searchStop()
+      ganglionBLE.searchStop()
         .then(() => {
           _connect(peripheralName, client);
         })
         .catch((err) => {
           client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
-          ganglion.removeAllListeners('ready');
+          ganglionBLE.removeAllListeners('ready');
         });
     }
   };
-  ganglion.on('ganglionFound', verifyGanglionFound);
-  ganglion.once(k.OBCINobleEmitterScanStart, () => {
+  ganglionBLE.on('ganglionFound', verifyGanglionFound);
+  ganglionBLE.once(k.OBCINobleEmitterScanStart, () => {
     if (verbose) console.log(`Verify - Ganglion scan started`);
   });
-  ganglion.once(k.OBCINobleEmitterScanStop, () => {
+  ganglionBLE.once(k.OBCINobleEmitterScanStop, () => {
     if (verbose) console.log(`Verify - Ganglion scan stopped`);
     if (!ganglionVerified) {
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnectTimeout}${kTcpStop}`);
     }
-    ganglion.removeListener('ganglionFound', verifyGanglionFound);
+    ganglionBLE.removeListener('ganglionFound', verifyGanglionFound);
   });
-  ganglion.searchStart(5 * 1000).catch((err) => {
+  ganglionBLE.searchStart(5 * 1000).catch((err) => {
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
-    ganglion.removeAllListeners('ready');
+    ganglionBLE.removeAllListeners('ready');
   });
 };
 
 const _connect = (peripheralName, client) => {
-  ganglion.once('ready', () => {
+  ganglionBLE.once('ready', () => {
     if (verbose) console.log('ready!');
     client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
-    ganglion.on('accelerometer', accelerometerFunction.bind(null, client));
-    ganglion.on('sample', sampleFunction.bind(null, client));
-    ganglion.on('message', messageFunction.bind(null, client));
-    ganglion.once('close', closeFunction.bind(null, client));
+    ganglionBLE.on('accelerometer', accelerometerFunction.bind(null, client));
+    ganglionBLE.on('sample', sampleFunction.bind(null, client));
+    ganglionBLE.on('message', messageFunction.bind(null, client));
+    ganglionBLE.once('close', closeFunction.bind(null, client));
   });
-  ganglion.connect(peripheralName, true) // Port name is a serial port name, see `.listPorts()`
+  ganglionBLE.connect(peripheralName, true) // Port name is a serial port name, see `.listPorts()`
     .catch((err) => {
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
-      ganglion.removeAllListeners('ready');
+      ganglionBLE.removeAllListeners('ready');
     });
 };
 
@@ -486,8 +425,8 @@ const _connect = (peripheralName, client) => {
  * @param client {Object} - writable TCP client
  */
 const processDisconnect = (msg, client) => {
-  ganglion.manualDisconnect = true;
-  ganglion.disconnect(true)
+  ganglionBLE.manualDisconnect = true;
+  ganglionBLE.disconnect(true)
     .then(() => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
     })
@@ -501,9 +440,9 @@ const processImpedance = (msg, client) => {
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      ganglion.impedanceStart()
+      ganglionBLE.impedanceStart()
         .then(() => {
-          ganglion.on(k.OBCIEmitterImpedance, impedanceFunction.bind(null, client));
+          ganglionBLE.on(k.OBCIEmitterImpedance, impedanceFunction.bind(null, client));
           client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch((err) => {
@@ -511,9 +450,9 @@ const processImpedance = (msg, client) => {
         });
       break;
     case kTcpActionStop:
-      ganglion.impedanceStop()
+      ganglionBLE.impedanceStop()
         .then(() => {
-          ganglion.removeAllListeners(k.OBCIEmitterImpedance);
+          ganglionBLE.removeAllListeners(k.OBCIEmitterImpedance);
           client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch((err) => {
@@ -523,6 +462,131 @@ const processImpedance = (msg, client) => {
   }
 };
 
+const protocolSafeStart = () => {
+  if (ganglionBLE) {
+    ganglionBLECleanup();
+  }
+  if (wifiServer) {
+    wifiServerCleanup();
+  }
+};
+
+const _protocolStartBLE = (client) => {
+  protocolSafeStart();
+  ganglionBLE = new ganglionBLE({
+    nobleScanOnPowerOn: false,
+    sendCounts: true,
+    verbose: verbose
+  }, (error) => {
+    if (error) {
+      // Need to send out error to clients when they connect that there is a bad inner noble
+      ganglionHubError = error;
+      client.write(`${kTcpCmdProtocol},${kTcpCodeErrorProtocolBLEStart},${error}${kTcpStop}`)
+    } else {
+      client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolBLE}${kTcpStop}`);
+    }
+  });
+};
+
+const _protocolStartWifi = (client) => {
+  protocolSafeStart();
+  wifiServer = net.createServer((_client) => {
+    // Identify this client
+    _client.name = `${_client.remoteAddress}:${_client.remotePort}`;
+
+    if (verbose) console.log(`Welcome ${_client.name}`);
+
+
+    // Handle incoming messages from clients.
+    _client.on('data', (data) => {
+      if (persistentBuffer !== null) persistentBuffer = Buffer.concat([persistentBuffer, data]);
+      else persistentBuffer = data;
+
+      if (persistentBuffer) {
+        let bytesIn = persistentBuffer.byteLength;
+        if (bytesIn > 2) {
+          let head = 2;
+          let tail = 0;
+          while (head < bytesIn - 2) {
+            if (delimBuf.compare(persistentBuffer, head-2, head) === 0) {
+              try {
+                const obj = JSON.parse(persistentBuffer.slice(tail, head-2));
+                console.log(persistentBuffer.slice(tail, head-2).toString());
+                if (head < bytesIn - 2) {
+                  tail = head;
+                }
+              } catch (e) {
+                console.log(persistentBuffer.slice(tail, head-2).toString());
+                persistentBuffer = persistentBuffer.slice(head);
+                return;
+              }
+
+            }
+            head++;
+          }
+
+          if (tail < bytesIn - 2) {
+            persistentBuffer = persistentBuffer.slice(tail);
+          } else {
+            persistentBuffer = null;
+          }
+
+        }
+      }
+    });
+
+    // Remove the client from the list when it leaves
+    _client.on('end', () => {
+      if (verbose) {
+        console.log(`${_client.name} has left`);
+      }
+      _client.removeAllListeners('data');
+      _client.removeAllListeners('end');
+      _client.removeAllListeners('error');
+    });
+
+    _client.on('error', (err) => {
+      if (verbose) {
+        console.log(`Error from ${_client.name}: ${err}`);
+      }
+    });
+  }).listen();
+
+  if (verbose) {
+    console.log(`wifi server listening on port ${ip.address()}:${wifiServer.address().port}`);
+  }
+  client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolWiFi}${kTcpStop}`);
+};
+
+/**
+ * For processing incoming protocol commands
+ * @param msg {String} - The actual message. cmd,newProtocol,end
+ * @param client {Object} - writable TCP client
+ */
+const processProtocol = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const protocol = msgElements[1];
+  switch (protocol) {
+    case kTcpProtocolBLE:
+      _protocolStartBLE(client);
+      break;
+    case kTcpProtocolWiFi:
+      _protocolStartWifi(client);
+      break;
+    default:
+      client.write(`${kTcpCmdProtocol},${kTcpCodeErrorProtocolUnknown}${kTcpStop}`);
+      break;
+  }
+  ganglionBLE.manualDisconnect = true;
+  ganglionBLE.disconnect(true)
+    .then(() => {
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+    })
+    .catch((err) => {
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
+    });
+};
+
 const _scanStart = (client) => {
   const ganglionFound = (peripheral) => {
     const localName = peripheral.advertisement.localName;
@@ -530,17 +594,17 @@ const _scanStart = (client) => {
     client.write(`${kTcpCmdScan},${kTcpCodeSuccessGanglionFound},${localName}${kTcpStop}`);
   };
   return new Promise((resolve, reject) => {
-    ganglion.on(k.OBCIEmitterGanglionFound, ganglionFound);
-    ganglion.once(k.OBCINobleEmitterScanStop, () => {
-      ganglion.removeListener(k.OBCIEmitterGanglionFound, ganglionFound);
+    ganglionBLE.on(k.OBCIEmitterGanglionFound, ganglionFound);
+    ganglionBLE.once(k.OBCINobleEmitterScanStop, () => {
+      ganglionBLE.removeListener(k.OBCIEmitterGanglionFound, ganglionFound);
     });
-    ganglion.searchStart()
+    ganglionBLE.searchStart()
       .then(() => {
         client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         resolve();
       })
       .catch((err) => {
-        ganglion.removeAllListeners(k.OBCIEmitterGanglionFound);
+        ganglionBLE.removeAllListeners(k.OBCIEmitterGanglionFound);
         client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
         reject(err);
       });
@@ -557,8 +621,8 @@ const _scanStart = (client) => {
 const _scanStop = (client, writeOutMessage) => {
   return new Promise((resolve, reject) => {
     if (_.isUndefined(writeOutMessage)) writeOutMessage = true;
-    ganglion.removeAllListeners(k.OBCIEmitterGanglionFound);
-    ganglion.searchStop()
+    ganglionBLE.removeAllListeners(k.OBCIEmitterGanglionFound);
+    ganglionBLE.searchStop()
       .then(() => {
         if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         resolve();
@@ -575,7 +639,7 @@ const processScan = (msg, client) => {
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      if (ganglion.isSearching()) {
+      if (ganglionBLE.isSearching()) {
         _scanStop(client, false)
           .then(() => {
             if (verbose) console.log('scan stopped first');
@@ -598,14 +662,14 @@ const processScan = (msg, client) => {
       }
       break;
     case kTcpActionStatus:
-      if (ganglion.isSearching()) {
+      if (ganglionBLE.isSearching()) {
         client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
       } else {
         client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
       }
       break;
     case kTcpActionStop:
-      if (ganglion.isSearching()) {
+      if (ganglionBLE.isSearching()) {
         _scanStop(client, true)
           .then(() => {
             if (verbose) console.log(`stopped scan`);
@@ -620,27 +684,42 @@ const processScan = (msg, client) => {
   }
 };
 
+const ganglionBLECleanup = () => {
+  if (ganglionBLE) {
+    ganglionBLE.manualDisconnect = true;
+    ganglionBLE.disconnect();
+    ganglionBLE.removeAllListeners('accelerometer');
+    ganglionBLE.removeAllListeners('sample');
+    ganglionBLE.removeAllListeners('message');
+    ganglionBLE.removeAllListeners('impedance');
+    ganglionBLE.removeAllListeners('ganglionFound');
+    ganglionBLE.removeAllListeners('close');
+    ganglionBLE.destroyNoble();
+    ganglionBLE = null;
+  }
+};
+
+const wifiServerCleanup = () => {
+  if (wifiServer) {
+    wifiServer.stop();
+    wifiServer = null;
+  }
+};
+
 function exitHandler (options, err) {
   if (options.cleanup) {
     if (verbose) console.log('clean');
     // console.log(connectedPeripheral)
     streamJSON.removeAllListeners('data');
     streamJSON = null;
-    ganglion.manualDisconnect = true;
-    ganglion.disconnect();
-    ganglion.removeAllListeners('accelerometer');
-    ganglion.removeAllListeners('sample');
-    ganglion.removeAllListeners('message');
-    ganglion.removeAllListeners('impedance');
-    ganglion.removeAllListeners('ganglionFound');
-    ganglion.removeAllListeners('close');
-    ganglion.destroyNoble();
+    ganglionBLECleanup();
+    wifiServerCleanup();
   }
   if (err) console.log(err.stack);
   if (options.exit) {
     if (verbose) console.log('exit');
-    if (ganglion.isConnected()) {
-      ganglion.disconnect()
+    if (ganglionBLE.isConnected()) {
+      ganglionBLE.disconnect()
         .then(() => {
           process.exit();
         })
