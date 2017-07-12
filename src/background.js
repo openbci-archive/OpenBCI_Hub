@@ -1,11 +1,9 @@
 import net from 'net';
 import { Ganglion, Constants } from 'openbci-ganglion'; // native npm module
+import { Wifi } from 'openbci-wifi'; // native npm module
 import menubar from 'menubar';
 import * as _ from 'lodash';
-import JSONStream from 'json-stream';
-import http from 'http';
-import ip from 'ip';
-import { Client } from 'node-ssdp';
+
 
 
 /** TCP */
@@ -47,6 +45,7 @@ const kTcpCodeErrorImpedanceCouldNotStop = 415;
 const kTcpCodeErrorNoOpenBleDevice = 400;
 const kTcpCodeErrorProtocolUnknown = 418;
 const kTcpCodeErrorProtocolBLEStart = 419;
+const kTcpCodeErrorProtocolNotStarted = 420;
 const kTcpCodeErrorUnableToConnect = 402;
 const kTcpCodeErrorUnableToConnectTimeout = 413;
 const kTcpCodeErrorUnableToDisconnect = 401;
@@ -75,6 +74,10 @@ let ganglionHubError;
  * @type {Ganglion}
  */
 let ganglionBLE = null;
+let wifi = new Wifi({
+  sendCounts: true,
+  verbose: verbose
+});
 
 
 // Start a TCP Server
@@ -106,13 +109,16 @@ net.createServer((client) => {
     client.removeAllListeners('data');
     client.removeAllListeners('end');
     client.removeAllListeners('error');
-    if (ganglionBLE.isConnected()) {
-      ganglionBLE.manualDisconnect = true;
-      ganglionBLE.disconnect(true)
-        .catch((err) => {
-          if (verbose) console.log(err);
-        })
+    if (ganglionBLE) {
+      if (ganglionBLE.isConnected()) {
+        ganglionBLE.manualDisconnect = true;
+        ganglionBLE.disconnect(true)
+          .catch((err) => {
+            if (verbose) console.log(err);
+          })
+      }
     }
+
   });
 
   client.on('error', (err) => {
@@ -128,83 +134,6 @@ net.createServer((client) => {
 if (verbose) {
   console.log(`server listening on port ${kTcpHost}:${kTcpPort}`);
 }
-
-let persistentBuffer = null;
-const delimBuf = new Buffer("\r\n");
-
-// Start a TCP Server
-let wifiServer = null;
-let wifiClient = null;
-let ssdpTimeout = null;
-
-const wifiProcessResponse = (res, cb) => {
-  if (verbose) {
-    console.log(`STATUS: ${res.statusCode}`);
-    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-  }
-  res.setEncoding('utf8');
-  let msg = '';
-  res.on('data', (chunk) => {
-    if (verbose) console.log(`BODY: ${chunk}`);
-    msg += chunk.toString();
-  });
-  res.once('end', () => {
-    if (verbose) console.log('No more data in response.');
-    console.log('res', msg);
-    if (res.statusCode !== 200) {
-      if (cb) cb(msg);
-    } else {
-      if (cb) cb();
-    }
-  });
-};
-
-const wifiPost = (host, path, payload, cb) => {
-  const output = JSON.stringify(payload);
-  const options = {
-    host: host,
-    port: 80,
-    path: path,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': output.length
-    }
-  };
-
-  const req = http.request(options, (res) => {
-    wifiProcessResponse(res, (err) => {
-      if (err) {
-        if (cb) cb(err);
-      } else {
-        if (cb) cb();
-      }
-    });
-  });
-
-  req.once('error', (e) => {
-    if (verbose) console.log(`problem with request: ${e.message}`);
-    if (cb) cb(e);
-  });
-
-  // write data to request body
-  req.write(output);
-  req.end();
-};
-
-let shield_uuid = "openbci-2af1.local";
-wifiPost(shield_uuid, '/tcp', {
-  ip: ip.address(),
-  output: "json",
-  port: wifiServer.address().port,
-  delimiter: true,
-  latency: 10000
-}, (err) => {
-  if (err) console. log("err", err);
-  else {
-    wifiPost(shield_uuid, '/command', {'command': 'b'});
-  }
-});
 
 /**
  * Called when an accelerometer array is emitted.
@@ -288,19 +217,7 @@ var parseMessage = (msg, client) => {
       processConnect(msg, client);
       break;
     case kTcpCmdCommand:
-      if (ganglionBLE.isConnected()) {
-        ganglionBLE.write(msgElements[1])
-          .then(() => {
-            if (verbose) console.log(`sent ${msgElements[1]} to Ganglion`);
-            client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
-          })
-          .catch((err) => {
-            if (verbose) console.log('unable to write command', err);
-            client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
-          });
-      } else {
-        client.write(`${kTcpCmdCommand},${kTcpCodeErrorNoOpenBleDevice}${kTcpStop}`);
-      }
+      processCommand(msg, client);
       break;
     case kTcpCmdDisconnect:
       processDisconnect(msg, client);
@@ -353,6 +270,53 @@ const processAccelerometer = (msg, client) => {
   }
 };
 
+const _processCommandBLE = (msg, client) => {
+  if (_.isNull(ganglionBLE)) {
+    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted}${kTcpStop}`);
+  }
+  if (ganglionBLE.isConnected()) {
+    ganglionBLE.write(msgElements[1])
+      .then(() => {
+        if (verbose) console.log(`sent ${msgElements[1]} to Ganglion`);
+        client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
+      })
+      .catch((err) => {
+        if (verbose) console.log('unable to write command', err);
+        client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+      });
+  } else {
+    client.write(`${kTcpCmdCommand},${kTcpCodeErrorNoOpenBleDevice}${kTcpStop}`);
+  }
+};
+
+const _processCommandWifi = (msg, client) => {
+  if (_.isNull(wifi)) {
+    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted}${kTcpStop}`);
+  }
+  let msgElements = msg.toString().split(',');
+  wifi.write(msgElements[1])
+    .then(() => {
+      if (verbose) console.log(`sent ${msgElements[1]} to Wifi shield`);
+      client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
+    })
+    .catch((err) => {
+      if (verbose) console.log('unable to write command', err);
+      client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+    });
+};
+
+const processCommand = (msg, client) => {
+  switch (curTcpProtocol) {
+    case kTcpProtocolWiFi:
+      _processCommandWifi(msg, client);
+      break;
+    case kTcpProtocolBLE:
+    default:
+      _processCommandBLE(msg, client);
+      break;
+  }
+};
+
 const _processConnectBLE = (msg, client) => {
   let msgElements = msg.toString().split(',');
   if (ganglionBLE.isConnected()) {
@@ -376,6 +340,39 @@ const _processConnectBLE = (msg, client) => {
   }
 };
 
+const _connectWifi = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+
+  if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
+
+  wifi.connect(msgElements[1])
+    .then(() => {
+      client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+      return Promise.resolve();
+    })
+    .catch((err) => {
+      client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+    })
+};
+
+const _processConnectWifi = (msg, client) => {
+  if (wifi.isConnected()) {
+    if (verbose) console.log('already connected');
+    client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
+  } else {
+    if (wifi.isSearching()) {
+      wifi.searchStop()
+        .then(() => {
+          _connectWifi(msg, wifi);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
+          return Promise.reject();
+        });
+    }
+  }
+};
+
 /**
  * For processing incoming connect commands
  * @param msg {String} - The actual message
@@ -384,6 +381,7 @@ const _processConnectBLE = (msg, client) => {
 const processConnect = (msg, client) => {
   switch (curTcpProtocol) {
     case kTcpProtocolWiFi:
+      _processConnectWifi(msg, client);
       break;
     case kTcpProtocolBLE:
     default:
@@ -463,8 +461,7 @@ const _processDisconnectBLE = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectWifi = (client) => {
-  ganglionBLE.manualDisconnect = true;
-  ganglionBLE.disconnect(true)
+  wifi.disconnect()
     .then(() => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
     })
@@ -481,6 +478,7 @@ const _processDisconnectWifi = (client) => {
 const processDisconnect = (msg, client) => {
   switch (curTcpProtocol) {
     case kTcpProtocolWiFi:
+      _processDisconnectWifi(client);
       break;
     case kTcpProtocolBLE:
     default:
@@ -520,7 +518,7 @@ const protocolSafeStart = () => {
   if (ganglionBLE) {
     ganglionBLECleanup();
   }
-  if (wifiServer) {
+  if (wifi) {
     wifiServerCleanup();
   }
 };
@@ -545,71 +543,10 @@ const _protocolStartBLE = (cb) => {
 
 const _protocolStartWifi = (cb) => {
   protocolSafeStart();
-  wifiServer = net.createServer((_client) => {
-    // Identify this client
-    _client.name = `${_client.remoteAddress}:${_client.remotePort}`;
-
-    if (verbose) console.log(`Welcome ${_client.name}`);
-
-
-    // Handle incoming messages from clients.
-    _client.on('data', (data) => {
-      if (persistentBuffer !== null) persistentBuffer = Buffer.concat([persistentBuffer, data]);
-      else persistentBuffer = data;
-
-      if (persistentBuffer) {
-        let bytesIn = persistentBuffer.byteLength;
-        if (bytesIn > 2) {
-          let head = 2;
-          let tail = 0;
-          while (head < bytesIn - 2) {
-            if (delimBuf.compare(persistentBuffer, head-2, head) === 0) {
-              try {
-                const obj = JSON.parse(persistentBuffer.slice(tail, head-2));
-                console.log(persistentBuffer.slice(tail, head-2).toString());
-                if (head < bytesIn - 2) {
-                  tail = head;
-                }
-              } catch (e) {
-                console.log(persistentBuffer.slice(tail, head-2).toString());
-                persistentBuffer = persistentBuffer.slice(head);
-                return;
-              }
-
-            }
-            head++;
-          }
-
-          if (tail < bytesIn - 2) {
-            persistentBuffer = persistentBuffer.slice(tail);
-          } else {
-            persistentBuffer = null;
-          }
-
-        }
-      }
-    });
-
-    // Remove the client from the list when it leaves
-    _client.on('end', () => {
-      if (verbose) {
-        console.log(`${_client.name} has left`);
-      }
-      _client.removeAllListeners('data');
-      _client.removeAllListeners('end');
-      _client.removeAllListeners('error');
-    });
-
-    _client.on('error', (err) => {
-      if (verbose) {
-        console.log(`Error from ${_client.name}: ${err}`);
-      }
-    });
-  }).listen();
-
-  if (verbose) {
-    console.log(`wifi server listening on port ${ip.address()}:${wifiServer.address().port}`);
-  }
+  wifi = new Wifi({
+    sendCounts: true,
+    verbose: verbose
+  });
   if (cb) cb();
   curTcpProtocol = kTcpProtocolWiFi;
 
@@ -640,14 +577,6 @@ const processProtocol = (msg, client) => {
       client.write(`${kTcpCmdProtocol},${kTcpCodeErrorProtocolUnknown}${kTcpStop}`);
       break;
   }
-  ganglionBLE.manualDisconnect = true;
-  ganglionBLE.disconnect(true)
-    .then(() => {
-      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
-    })
-    .catch((err) => {
-      client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
-    });
 };
 
 const _scanStartBLE = (client) => {
@@ -727,9 +656,9 @@ const _processScanBLE = (msg, client) => {
   switch (action) {
     case kTcpActionStart:
       if (_.isNull(ganglionBLE)) {
-        if (verbose) console.log("ganglion hub not started, attempting to start before scan");
+        if (verbose) console.log("ganglion noble not started, attempting to start before scan");
         _protocolStartBLE((err) => {
-          if (err) => {
+          if (err) {
             client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
           } else {
             _processScanBLEStart(client);
@@ -762,43 +691,49 @@ const _processScanBLE = (msg, client) => {
   }
 };
 
-const _scanStartWifi = (client, timeout, attempts) => {
-  wifiClient = new Client({});
-  let attemptCounter = 0;
-  let _attempts = attempts || 2;
-  let _timeout = timeout || 5 * 1000;
-  let timeoutFunc = () => {
-    if (attemptCounter < _attempts) {
-      wifiClient.stop();
-      wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
-      attemptCounter++;
-      if (verbose) console.log(`SSDP: still trying to find a board - attempt ${attemptCounter} of ${_attempts}`);
-      ssdpTimeout = setTimeout(timeoutFunc, _timeout);
-    } else {
-      wifiClient.stop();
-      clearTimeout(ssdpTimeout);
-      if (verbose) console.log('SSDP: stopping because out of attemps');
-    }
+const _scanStartWifi = (client) => {
+  const wifiFound = (obj) => {
+    const localName = obj.rinfo.address;
+    if (verbose) console.log(`Wifi shield found: ${localName}`);
+    client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${localName}${kTcpStop}`);
   };
-  wifiClient.on('response', (headers, code, rinfo) => {
-    if (verbose) console.log('SSDP:Got a response to an m-search:\n%d\n%s\n%s', code, JSON.stringify(headers, null, '  '), JSON.stringify(rinfo, null, '  '));
-    const _ip = rinfo.address;
-    client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${_ip}${kTcpStop}`);
+  return new Promise((resolve, reject) => {
+    wifi.on('wifiShield', wifiFound);
+
+    wifi.searchStart()
+      .then(() => {
+        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        resolve();
+      })
+      .catch((err) => {
+        wifi.removeAllListeners('wifiShield');
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
+        reject(err);
+      });
   });
-  // Search for just the wifi shield
-  wifiClient.search('urn:schemas-upnp-org:device:Basic:1');
-  ssdpTimeout = setTimeout(timeoutFunc, _timeout);
 };
 
-const _scanStopWifi = () => {
-  if (wifiClient) {
-    wifiClient.stop();
-    wifiClient.removeAllListeners('response');
-  }
-  if (ssdpTimeout) {
-    clearTimeout(ssdpTimeout);
-    ssdpTimeout = null;
-  }
+/**
+ * Stop a scan
+ * @param client
+ * @param writeOutMessage
+ * @return {Promise}
+ * @private
+ */
+const _scanStopWifi = (client, writeOutMessage) => {
+  return new Promise((resolve, reject) => {
+    if (_.isUndefined(writeOutMessage)) writeOutMessage = true;
+    wifi.removeAllListeners('wifiShield');
+    wifi.searchStop()
+      .then(() => {
+        if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        resolve();
+      })
+      .catch((err) => {
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
+        reject(err);
+      });
+  });
 };
 
 const _processScanWifiStart = (client) => {
@@ -818,10 +753,10 @@ const _processScanWifi = (msg, client) => {
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      if (_.isNull(wifiClient)) {
-        if (verbose) console.log("ganglion hub not started, attempting to start before scan");
+      if (_.isNull(wifi)) {
+        if (verbose) console.log("wifi not started, attempting to start before scan");
         _protocolStartWifi((err) => {
-          if (err) => {
+          if (err) {
             client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
           } else {
             _processScanWifiStart(client);
@@ -832,15 +767,15 @@ const _processScanWifi = (msg, client) => {
       }
       break;
     case kTcpActionStatus:
-      if (!_.isNull(ssdpTimeout)) {
+      if (wifi.isSearching()) {
         client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
       } else {
         client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
       }
       break;
     case kTcpActionStop:
-      if (!_.isNull(ssdpTimeout)) {
-        _scanStopWifi();
+      if (wifi.isSearching()) {
+        _scanStopWifi().catch(console.log);
         client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
       } else {
         client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop},${kTcpStop}`);
@@ -881,42 +816,50 @@ const ganglionBLECleanup = () => {
   }
 };
 
-const wifiServerCleanup = () => {
-  if (wifiServer) {
-    wifiServer.stop();
-    wifiServer = null;
+const wifiCleanup = () => {
+  if (wifi) {
+    wifi.removeAllListeners('wifiShield');
+    wifi.disconnect().catch(console.log);
+    wifi.destroy();
+    wifi = null;
   }
 };
 
-const wifiClientCleanup =  () => {
-  if (wifiClient) {
-    wifiClient.stop();
-  }
-  wifiClient = null;
-};
+
 
 function exitHandler (options, err) {
   if (options.cleanup) {
     if (verbose) console.log('clean');
-    // console.log(connectedPeripheral)
-    streamJSON.removeAllListeners('data');
-    streamJSON = null;
     ganglionBLECleanup();
-    wifiServerCleanup();
-    wifiClientCleanup();
+    wifiCleanup();
   }
   if (err) console.log(err.stack);
   if (options.exit) {
     if (verbose) console.log('exit');
-    if (ganglionBLE.isConnected()) {
-      ganglionBLE.disconnect()
-        .then(() => {
-          process.exit();
-        })
-        .catch((err) => {
-          if (verbose) console.log(err);
-          process.exit();
-        });
+    if (ganglionBLE) {
+      if (ganglionBLE.isConnected()) {
+        ganglionBLE.disconnect()
+          .then(() => {
+            process.exit();
+          })
+          .catch((err) => {
+            if (verbose) console.log(err);
+            process.exit();
+          });
+      }
+    }
+    if (wifi) {
+      if (wifi.isConnected()) {
+        wifi.disconnect()
+          .then(() => {
+            process.exit();
+          })
+          .catch((err) => {
+            if (verbose) console.log(err);
+            process.exit();
+          });
+      }
+
     }
   }
 }
