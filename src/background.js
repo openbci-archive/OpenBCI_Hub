@@ -61,10 +61,6 @@ const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
 
 let verbose = true;
-let streamJSON = JSONStream();
-streamJSON.on("data", (sample) => {
-  console.log(JSON.stringify(sample));
-});
 
 let curTcpProtocol = kTcpProtocolBLE;
 
@@ -347,7 +343,10 @@ const _connectWifi = (msg, client) => {
 
   wifi.connect(msgElements[1])
     .then(() => {
+      //TODO: Finish this connect
       client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+      wifi.on('sample', sampleFunction.bind(null, client));
+      wifi.on('message', messageFunction.bind(null, client));
       return Promise.resolve();
     })
     .catch((err) => {
@@ -400,7 +399,7 @@ const _verifyDeviceBeforeConnect = (peripheralName, client) => {
       ganglionVerified = true;
       ganglionBLE.searchStop()
         .then(() => {
-          _connect(peripheralName, client);
+          _connectGanglion(peripheralName, client);
         })
         .catch((err) => {
           client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
@@ -425,7 +424,7 @@ const _verifyDeviceBeforeConnect = (peripheralName, client) => {
   });
 };
 
-const _connect = (peripheralName, client) => {
+const _connectGanglion = (peripheralName, client) => {
   ganglionBLE.once('ready', () => {
     if (verbose) console.log('ready!');
     client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
