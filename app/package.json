@@ -15,6 +15,6 @@
     "menubar": "^5.1.0",
     "node-ssdp": "^3.2.1",
     "openbci-ganglion": "^0.4.2",
-    "openbci-wifi": "0.0.1"
+    "openbci-wifi": "0.0.3"
   }
 }
