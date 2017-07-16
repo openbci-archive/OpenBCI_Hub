@@ -1,17 +1,20 @@
 {
-  "name": "openbci-ganglion-hub",
-  "productName": "GanglionHub",
-  "description": "GanglionHub",
+  "name": "openbci-electron-hub",
+  "productName": "OpenBCIHub",
+  "description": "OpenBCIHub",
   "version": "0.4.1",
   "author": "AJ Keller <hello@pushtheworld.us>",
-  "copyright": "© 2016, OpenBCI inc.",
+  "copyright": "© 2017, OpenBCI inc.",
   "homepage": "http://openbci.com",
   "license": "MIT",
   "main": "background.js",
   "dependencies": {
     "fs-jetpack": "^0.9.0",
+    "json-stream": "^1.0.0",
     "lodash": "^4.16.6",
     "menubar": "^5.1.0",
-    "openbci-ganglion": "^0.4.2"
+    "node-ssdp": "^3.2.1",
+    "openbci-ganglion": "^0.4.2",
+    "openbci-wifi": "0.0.4"
   }
 }

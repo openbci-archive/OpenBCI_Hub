@@ -24,7 +24,7 @@
     "buildResources": "resources"
   },
   "scripts": {
-    "postinstall": "install-app-deps",
+    "postinstall": "node ./node_modules/electron-builder/out/install-app-deps.js",
     "build": "gulp build",
     "prerelease": "gulp build --env=production",
     "release": "build --publish never",
