@@ -161,6 +161,12 @@ var accelerometerFunction = (client, accelDataCounts) => {
  */
 var sampleFunction = (client, sample) => {
   let packet = `${kTcpCmdData},${kTcpCodeSuccessSampleData},`;
+  if (curTcpProtocol == kTcpProtocolWiFi) {
+    if (!sample.valid) {
+      client.write(`${kTcpCmdData},${kTcpCodeBadPacketData}${kTcpStop}`);
+      return;
+    }
+  }
   packet += sample.sampleNumber;
   for (var j = 0; j < sample.channelDataCounts.length; j++) {
     packet += ',';
@@ -270,6 +276,8 @@ const processAccelerometer = (msg, client) => {
 };
 
 const _processCommandBLE = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+
   if (_.isNull(ganglionBLE)) {
     client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted}${kTcpStop}`);
   }
@@ -351,8 +359,6 @@ const _connectWifi = (msg, client) => {
     }
   });
 
-
-
   wifi.connect(addr)
     .then(() => {
       //TODO: Finish this connect
@@ -361,6 +367,14 @@ const _connectWifi = (msg, client) => {
       wifi.on('sample', sampleFunction.bind(null, client));
       wifi.on('message', messageFunction.bind(null, client));
       return Promise.resolve();
+    })
+    .then(() => {
+      console.log("\n\n\nhey");
+      if (wifi.getNumberOfChannels() == 4) {
+        return wifi.setSampleRate(200);
+      } else {
+        return wifi.setSampleRate(250);
+      }
     })
     .catch((err) => {
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
@@ -379,14 +393,6 @@ const _processConnectWifi = (msg, client) => {
         .then(() => {
           _connectWifi(msg, client);
           return Promise.resolve();
-        })
-        .then(() => {
-          console.log("\n\n\nhey");
-          if (wifi.getNumberOfChannels() == 4) {
-            return wifi.setSampleRate(1600);
-          } else {
-            return wifi.setSampleRate(1000);
-          }
         })
         .catch((err) => {
         console.log("err", err);
