@@ -378,6 +378,15 @@ const _processConnectWifi = (msg, client) => {
       wifi.searchStop()
         .then(() => {
           _connectWifi(msg, client);
+          return Promise.resolve();
+        })
+        .then(() => {
+          console.log("\n\n\nhey");
+          if (wifi.getNumberOfChannels() == 4) {
+            return wifi.setSampleRate(1600);
+          } else {
+            return wifi.setSampleRate(1000);
+          }
         })
         .catch((err) => {
         console.log("err", err);
@@ -478,6 +487,8 @@ const _processDisconnectBLE = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectWifi = (client) => {
+  wifi.removeAllListeners('sample');
+  wifi.removeAllListeners('messages');
   wifi.disconnect()
     .then(() => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
@@ -567,6 +578,7 @@ const _protocolStartWifi = () => {
     sendCounts: true,
     verbose: verbose
   });
+
   curTcpProtocol = kTcpProtocolWiFi;
   return Promise.resolve();
 };
