@@ -178,6 +178,7 @@ var sampleFunction = (client, sample) => {
  *  The message...
  */
 var messageFunction = (client, message) => {
+  console.log(message.toString());
   const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
   client.write(packet);
 };
@@ -343,9 +344,19 @@ const _connectWifi = (msg, client) => {
 
   if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
 
-  wifi.connect(msgElements[1])
+  let addr = msgElements[1];
+  _.forEach(localArray, (obj) => {
+    if (obj.localName === addr) {
+      addr = obj.ipAddress;
+    }
+  });
+
+
+
+  wifi.connect(addr)
     .then(() => {
       //TODO: Finish this connect
+      if (verbose) console.log("connect success");
       client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
       wifi.on('sample', sampleFunction.bind(null, client));
       wifi.on('message', messageFunction.bind(null, client));
@@ -357,19 +368,24 @@ const _connectWifi = (msg, client) => {
 };
 
 const _processConnectWifi = (msg, client) => {
+  console.log("uoy;sldkjf");
   if (wifi.isConnected()) {
     if (verbose) console.log('already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
+    if (verbose) console.log("not connected going to try and connect");
     if (wifi.isSearching()) {
       wifi.searchStop()
         .then(() => {
-          _connectWifi(msg, wifi);
+          _connectWifi(msg, client);
         })
         .catch((err) => {
+        console.log("err", err);
           client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
           return Promise.reject();
         });
+    } else {
+      _connectWifi(msg, client);
     }
   }
 };
@@ -621,6 +637,7 @@ const _processProtocolWifi = (msg, client) => {
  * @param client {Object} - writable TCP client
  */
 const processProtocol = (msg, client) => {
+  if (verbose) console.log(msg);
   let msgElements = msg.toString().split(',');
   const protocol = msgElements[2];
   switch (protocol) {
@@ -753,11 +770,12 @@ const _processScanBLE = (msg, client) => {
       break;
   }
 };
-
+let localArray = [];
 const _scanStartWifi = (client) => {
   const wifiFound = (obj) => {
-    const localName = obj.rinfo.address;
-    if (verbose) console.log(`Wifi shield found: ${localName}`);
+    const localName = obj.localName;
+    localArray.push(obj);
+    if (verbose) console.log(`Wifi shield found: ${obj}`);
     client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${localName}${kTcpStop}`);
   };
   return new Promise((resolve, reject) => {
@@ -800,14 +818,29 @@ const _scanStopWifi = (client, writeOutMessage) => {
 };
 
 const _processScanWifiStart = (client) => {
-  if (ssdpTimeout) {
+  if (wifi.isSearching()) {
     if (verbose) console.log('scan stopped first');
-    _scanStopWifi();
-    if (verbose) console.log('scan started');
-    _scanStartWifi(client);
+    _scanStopWifi(client, false)
+      .then(() => {
+        return _scanStartWifi(client);
+      })
+      .then(() => {
+        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+      })
+      .catch((err) => {
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
+        console.log(err);
+      });
   } else {
     if (verbose) console.log('no scan was running, before starting this scan.');
-    _scanStartWifi(client);
+    _scanStartWifi(client)
+      .then(() => {
+        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+      })
+      .catch((err) => {
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
+        console.log(err);
+      });
   }
 };
 
