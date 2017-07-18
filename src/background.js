@@ -14,6 +14,7 @@ const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
 const kTcpCmdAccelerometer = 'a';
+const kTcpCmdBoardType = 'b';
 const kTcpCmdConnect = 'c';
 const kTcpCmdCommand = 'k';
 const kTcpCmdData = 't';
@@ -54,6 +55,7 @@ const kTcpCodeErrorProtocolNotStarted = 420;
 const kTcpCodeErrorUnableToConnect = 402;
 const kTcpCodeErrorUnableToConnectTimeout = 413;
 const kTcpCodeErrorUnableToDisconnect = 401;
+const kTcpCodeErrorUnableToSetBoardType = 421;
 const kTcpCodeErrorScanAlreadyScanning = 409;
 const kTcpCodeErrorScanNoneFound = 407;
 const kTcpCodeErrorScanNoScanToStop = 410;
@@ -126,11 +128,13 @@ net.createServer((client) => {
           })
       }
     }
-    if (wifi.isConnected()) {
-      wifi.disconnect()
-        .catch((err) => {
-          if (verbose) console.log(err);
-        })
+    if (wifi) {
+      if (wifi.isConnected()) {
+        wifi.disconnect()
+          .catch((err) => {
+            if (verbose) console.log(err);
+          })
+      }
     }
     if (cyton.isConnected()) {
       cyton.disconnect()
@@ -236,11 +240,14 @@ var closeFunction = (client) => {
   }
 };
 
-var parseMessage = (msg, client) => {
+const parseMessage = (msg, client) => {
   let msgElements = msg.toString().split(',');
   // var char = String.fromCharCode(msg[0])
   // console.log('msgElements[0]',msgElements[0],char)
   switch (msgElements[0]) {
+    case kTcpCmdBoardType:
+      processBoardType(msg, client);
+      break;
     case kTcpCmdConnect:
       processConnect(msg, client);
       break;
@@ -295,6 +302,30 @@ const processAccelerometer = (msg, client) => {
           client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStop},${err}${kTcpStop}`);
         });
       break;
+  }
+};
+
+const processBoardType = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const boardType = msgElements[1];
+  if (curTcpProtocol === kTcpProtocolSerial) {
+    cyton.hardSetBoardType(boardType)
+      .then(() => {
+        if (verbose) console.log('set board type');
+        client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
+      })
+      .catch((err) => {
+        client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${err.message}${kTcpStop}`);
+      });
+  } else if (curTcpProtocol === kTcpProtocolWiFi) {
+    if (wifi.getBoardType() === boardType) {
+      client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
+    } else {
+      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Wifi is currently attached to ${wifi.getBoardType()}`}${kTcpStop}`);
+
+    }
+  } else {
+    client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Set protocol first to Serial, cur protocol is ${curTcpProtocol}`}${kTcpStop}`);
   }
 };
 
