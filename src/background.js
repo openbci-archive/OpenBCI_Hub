@@ -208,6 +208,19 @@ var sampleFunction = (client, sample) => {
  * @param message {Buffer}
  *  The message...
  */
+var eotFunction = (client, message) => {
+  console.log(message.toString());
+  const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
+  client.write(packet);
+};
+
+/**
+ * Called when a new message is received by the node driver.
+ * @param client {Object}
+ *  A TCP `net` client
+ * @param message {Buffer}
+ *  The message...
+ */
 var messageFunction = (client, message) => {
   console.log(message.toString());
   const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
@@ -309,14 +322,19 @@ const processBoardType = (msg, client) => {
   let msgElements = msg.toString().split(',');
   const boardType = msgElements[1];
   if (curTcpProtocol === kTcpProtocolSerial) {
-    cyton.hardSetBoardType(boardType)
-      .then(() => {
-        if (verbose) console.log('set board type');
-        client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
-      })
-      .catch((err) => {
-        client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${err.message}${kTcpStop}`);
-      });
+    if (cyton.getBoardType() === boardType) {
+      if (verbose) console.log('board type was already set correct');
+      client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
+    } else {
+      cyton.hardSetBoardType(boardType)
+        .then(() => {
+          if (verbose) console.log('set board type');
+          client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${err.message}${kTcpStop}`);
+        });
+    }
   } else if (curTcpProtocol === kTcpProtocolWiFi) {
     if (wifi.getBoardType() === boardType) {
       client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
@@ -428,19 +446,23 @@ const _processConnectBLE = (msg, client) => {
 
 const _processConnectSerial = (msg, client) => {
   let msgElements = msg.toString().split(',');
+  const onReadyFunc = () => {
+    if (verbose) console.log("ready");
+    client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+    cyton.on(k.OBCIEmitterSample, sampleFunction.bind(null, client));
+    cyton.on(k.OBCIEmitterEot, messageFunction.bind(null, client));
+    cyton.once(k.OBCIEmitterClose, closeFunction.bind(null, client));
+  };
   if (cyton.isConnected()) {
     if (verbose) console.log('already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
     if (verbose) console.log("not connected going to try and connect");
     let addr = msgElements[1];
+    cyton.once(k.OBCIEmitterReady, onReadyFunc.bind(null, client));
     cyton.connect(addr)
       .then(() => {
-        //TODO: Finish this connect
         if (verbose) console.log("connect success");
-        client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
-        cyton.on('sample', sampleFunction.bind(null, client));
-        cyton.on('eot', messageFunction.bind(null, client));
       })
       .catch((err) => {
         client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
@@ -598,8 +620,7 @@ const _processDisconnectBLE = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectSerial = (client) => {
-  cyton.removeAllListeners('sample');
-  cyton.removeAllListeners('eot');
+  cytonRemoveListeners();
   cyton.disconnect()
     .then(() => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
@@ -1141,7 +1162,7 @@ const ganglionBLECleanup = () => {
   }
 };
 
-const cytonSerialCleanup = () => {
+const cytonRemoveListeners = () => {
   if (cyton) {
     cyton.removeAllListeners(k.OBCIEmitterClose);
     cyton.removeAllListeners(k.OBCIEmitterDroppedPacket);
@@ -1151,6 +1172,12 @@ const cytonSerialCleanup = () => {
     cyton.removeAllListeners(k.OBCIEmitterReady);
     cyton.removeAllListeners(k.OBCIEmitterSample);
     cyton.removeAllListeners(k.OBCIEmitterSynced);
+  }
+}
+
+const cytonSerialCleanup = () => {
+  if (cyton) {
+    cytonRemoveListeners();
     if (cyton.isConnected()) {
       cyton.disconnect().catch(console.log);
     }
