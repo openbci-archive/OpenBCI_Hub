@@ -493,11 +493,10 @@ const _connectWifi = (msg, client) => {
       return Promise.resolve();
     })
     .then(() => {
-      console.log("\n\n\nhey");
       if (wifi.getNumberOfChannels() === 4) {
-        return wifi.setSampleRate(200);
+        return wifi.setSampleRate(1600);
       } else {
-        return wifi.setSampleRate(250);
+        return wifi.setSampleRate(1000);
       }
     })
     .catch((err) => {
