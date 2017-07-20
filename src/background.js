@@ -85,7 +85,6 @@ let wifi = new Wifi({
 });
 let cyton = new Cyton({
   sendCounts: true,
-  hardSet: true,
   verbose: verbose
 });
 
@@ -198,6 +197,7 @@ var sampleFunction = (client, sample) => {
     packet += sample.channelDataCounts[j];
   }
   packet += `${kTcpStop}`;
+  // console.log(packet);
   client.write(packet);
 };
 
@@ -351,7 +351,7 @@ const _processCommandBLE = (msg, client) => {
   let msgElements = msg.toString().split(',');
 
   if (_.isNull(ganglionBLE)) {
-    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted}${kTcpStop}`);
+    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted},${kTcpProtocolBLE}${kTcpStop}`);
   }
   if (ganglionBLE) {
     if (ganglionBLE.isConnected()) {
@@ -373,8 +373,8 @@ const _processCommandBLE = (msg, client) => {
 };
 
 const _processCommandSerial = (msg, client) => {
-  if (_.isNull(wifi)) {
-    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted}${kTcpStop}`);
+  if (_.isNull(cyton)) {
+    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted},${kTcpProtocolSerial}${kTcpStop}`);
   }
   let msgElements = msg.toString().split(',');
   cyton.write(msgElements[1])
@@ -390,7 +390,7 @@ const _processCommandSerial = (msg, client) => {
 
 const _processCommandWifi = (msg, client) => {
   if (_.isNull(wifi)) {
-    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted}${kTcpStop}`);
+    client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted},${kTcpProtocolWiFi}${kTcpStop}`);
   }
   let msgElements = msg.toString().split(',');
   wifi.write(msgElements[1])
@@ -449,6 +449,7 @@ const _processConnectSerial = (msg, client) => {
   const onReadyFunc = () => {
     if (verbose) console.log("ready");
     client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+    // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
     cyton.on(k.OBCIEmitterSample, sampleFunction.bind(null, client));
     cyton.on(k.OBCIEmitterEot, messageFunction.bind(null, client));
     cyton.once(k.OBCIEmitterClose, closeFunction.bind(null, client));
@@ -623,10 +624,11 @@ const _processDisconnectSerial = (client) => {
   cytonRemoveListeners();
   cyton.disconnect()
     .then(() => {
-      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
+      if (verbose) console.log("disconnect resolved");
     })
     .catch((err) => {
-      client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
+      if (verbose) console.log("failed to disconnect with err: ", err.message);
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err.message}${kTcpStop}`);
     });
 };
 
