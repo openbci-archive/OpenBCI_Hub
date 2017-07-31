@@ -17,6 +17,6 @@
     "openbci": "^2.1.2",
     "openbci-ganglion": "^0.4.2",
     "openbci-utilities": "^0.1.2",
-    "openbci-wifi": "^0.0.5"
+    "openbci-wifi": "^0.1.0"
   }
 }
