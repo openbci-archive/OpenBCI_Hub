@@ -187,7 +187,7 @@ var accelerometerFunction = (client, accelDataCounts) => {
  */
 var sampleFunction = (client, sample) => {
   let packet = `${kTcpCmdData},${kTcpCodeSuccessSampleData},`;
-  if (!sample.valid) {
+  if (!sample.valid && curTcpProtocol !== kTcpProtocolBLE) {
     client.write(`${kTcpCmdData},${kTcpCodeBadPacketData}${kTcpStop}`);
     return;
   }
