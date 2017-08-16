@@ -10,6 +10,7 @@ import * as _ from 'lodash';
 
 /** TCP */
 const k = Constants;
+const kTcpActionSet = 'set';
 const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
@@ -35,6 +36,7 @@ const kTcpCodeSuccessSampleData = 204;
 const kTcpCodeSuccessImpedanceData = 203;
 const kTcpCodeSuccessWifiShieldFound = 205;
 const kTcpCodeSuccessSerialDeviceFound = 206;
+const kTcpCodeSuccessChannelSetting = 207;
 const kTcpCodeStatusConnected = 300;
 const kTcpCodeStatusDisconnected = 301;
 const kTcpCodeStatusScanning = 302;
@@ -45,7 +47,10 @@ const kTcpCodeErrorUnknown = 499;
 const kTcpCodeErrorAlreadyConnected = 408;
 const kTcpCodeErrorAccelerometerCouldNotStart = 416;
 const kTcpCodeErrorAccelerometerCouldNotStop = 417;
+const kTcpCodeErrorChannelSettings = 423;
 const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
+const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
+const kTcpCodeErrorChannelSettingsFailedToParse = 425;
 const kTcpCodeErrorCommandNotAbleToBeSent = 406;
 const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
@@ -352,6 +357,34 @@ const processBoardType = (msg, client) => {
   }
 };
 
+/**
+ * @typedef {Object} ChannelSettingsObject - See page 50 of the ads1299.pdf
+ * @property {Number} channelNumber - The channel number of this object
+ * @property {Boolean} powerDown - Power-down: - This boolean determines the channel power mode for the
+ *                      corresponding channel. `false` for normal operation, channel is on, and `true` for channel
+ *                      power-down, channel is off. (Default is `false`)
+ * @property {Number} gain - PGA gain: This number determines the PGA gain setting. Can be either 1, 2, 4, 6, 8, 12, 24
+ *                      (Default is 24)
+ * @property {String} inputType - Channel input: This string is used to determine the channel input selection.
+ *                      Can be:
+ *                        'normal' - Normal electrode input (Default)
+ *                        'shorted' - Input shorted (for offset or noise measurements)
+ *                        'biasMethod' - Used in conjunction with BIAS_MEAS bit for BIAS measurements.
+ *                        'mvdd' - MVDD for supply measurement
+ *                        'temp' - Temperature sensor
+ *                        'testsig' - Test signal
+ *                        'biasDrp' - BIAS_DRP (positive electrode is the driver)
+ *                        'biasDrn' - BIAS_DRN (negative electrode is the driver)
+ * @property {Boolean} bias - BIAS: Is the channel included in the bias? If `true` or yes, this channel has both P
+ *                      and N channels connected to the bias. (Default is `true`)
+ * @property {Boolean} srb2 - SRB2 connection: This boolean determines the SRB2 connection for the corresponding
+ *                      channel. `false` for open, not connected to channel, and `true` for closed, connected to the
+ *                      channel. (Default is `true`)
+ * @property {Boolean} srb1 - Stimulus, reference, and bias 1: This boolean connects the SRB2 to all 4, 6, or 8
+ *                      channels inverting inputs. `false` when switches open, disconnected, and `true` when switches
+ *                      closed, or connected. (Default is `false`)
+ */
+
 let syncingChanSettings = false;
 const processChannelSettings = (msg, client) => {
   let msgElements = msg.toString().split(',');
@@ -361,24 +394,46 @@ const processChannelSettings = (msg, client) => {
       if (syncingChanSettings) {
         client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsSyncInProgress},${kTcpActionStart}${kTcpStop}`);
       } else {
-        cyton.syncC
+        if (verbose) console.log('about to try and start register channel setting sync');
+        syncingChanSettings = true;
+        cyton.syncRegisterSettings()
+          .then((channelSettings) => {
+            _.forEach(channelSettings,
+              /**
+               * @param cs {ChannelSettingsObject}
+               */
+              (cs) => {
+                console.log(`${kTcpCodeSuccessChannelSetting},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+              client.write(`${kTcpCodeSuccessChannelSetting},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+            });
+            syncingChanSettings = false;
+          })
+          .catch((err) => {
+            console.log("aww err", err);
+            client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
+            syncingChanSettings = false;
+          });
       }
-      ganglionBLE.accelStart()
-        .then(() => {
-          client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
-        })
-        .catch((err) => {
-          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStart},${err}${kTcpStop}`);
-        });
       break;
-    case kTcpActionStop:
-      ganglionBLE.accelStop()
-        .then(() => {
-          client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
-        })
-        .catch((err) => {
-          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStop},${err}${kTcpStop}`);
-        });
+    case kTcpActionSet:
+      try {
+        const channelNumber = parseInt(msgElements[2]);
+        const powerDown = Boolean(parseInt(msgElements[3]));
+        const gain = parseInt(msgElements[4]);
+        const inputType = msgElements[5];
+        const bias = Boolean(parseInt(msgElements[6]));
+        const srb2 = Boolean(parseInt(msgElements[7]));
+        const srb1 = Boolean(parseInt(msgElements[8]));
+        cyton.channelSet(channelNumber+1, powerDown, gain, inputType, bias, srb2, srb1)
+          .then(() => {
+            client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${kTcpActionSet}${kTcpStop}`);
+          })
+          .catch((err) => {
+            client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsFailedToSetChannel},${err.message}${kTcpStop}`);
+          });
+      } catch (e) {
+        client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsFailedToParse},${e.message}${kTcpStop}`);
+      }
       break;
   }
 };
