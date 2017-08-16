@@ -15,6 +15,7 @@ const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
 const kTcpCmdAccelerometer = 'a';
 const kTcpCmdBoardType = 'b';
+const kTcpCmdChannelSettings = 'r';
 const kTcpCmdConnect = 'c';
 const kTcpCmdCommand = 'k';
 const kTcpCmdData = 't';
@@ -44,6 +45,7 @@ const kTcpCodeErrorUnknown = 499;
 const kTcpCodeErrorAlreadyConnected = 408;
 const kTcpCodeErrorAccelerometerCouldNotStart = 416;
 const kTcpCodeErrorAccelerometerCouldNotStop = 417;
+const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
 const kTcpCodeErrorCommandNotAbleToBeSent = 406;
 const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
@@ -261,6 +263,9 @@ const parseMessage = (msg, client) => {
     case kTcpCmdBoardType:
       processBoardType(msg, client);
       break;
+    case kTcpCmdChannelSettings:
+      processChannelSettings(msg, client);
+      break;
     case kTcpCmdConnect:
       processConnect(msg, client);
       break;
@@ -344,6 +349,37 @@ const processBoardType = (msg, client) => {
     }
   } else {
     client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Set protocol first to Serial, cur protocol is ${curTcpProtocol}`}${kTcpStop}`);
+  }
+};
+
+let syncingChanSettings = false;
+const processChannelSettings = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      if (syncingChanSettings) {
+        client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsSyncInProgress},${kTcpActionStart}${kTcpStop}`);
+      } else {
+        cyton.syncC
+      }
+      ganglionBLE.accelStart()
+        .then(() => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStart},${err}${kTcpStop}`);
+        });
+      break;
+    case kTcpActionStop:
+      ganglionBLE.accelStop()
+        .then(() => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStop},${err}${kTcpStop}`);
+        });
+      break;
   }
 };
 
