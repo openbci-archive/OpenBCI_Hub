@@ -403,8 +403,8 @@ const processChannelSettings = (msg, client) => {
                * @param cs {ChannelSettingsObject}
                */
               (cs) => {
-                console.log(`${kTcpCodeSuccessChannelSetting},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-              client.write(`${kTcpCodeSuccessChannelSetting},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+                // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+              client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
             });
             syncingChanSettings = false;
           })
