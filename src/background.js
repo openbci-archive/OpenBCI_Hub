@@ -26,6 +26,7 @@ const kTcpCmdImpedance = 'i';
 const kTcpCmdLog = 'l';
 const kTcpCmdProtocol = 'p';
 const kTcpCmdScan = 's';
+const kTcpCmdSd = 'm';
 const kTcpCmdStatus = 'q';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeBadBLEStartUp = 501;
@@ -88,7 +89,8 @@ let ganglionHubError;
 let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts: true,
-  verbose: verbose
+  verbose: verbose,
+  latency: 10000
 });
 let cyton = new Cyton({
   sendCounts: true,
@@ -215,19 +217,6 @@ var sampleFunction = (client, sample) => {
  * @param message {Buffer}
  *  The message...
  */
-var eotFunction = (client, message) => {
-  console.log(message.toString());
-  const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
-  client.write(packet);
-};
-
-/**
- * Called when a new message is received by the node driver.
- * @param client {Object}
- *  A TCP `net` client
- * @param message {Buffer}
- *  The message...
- */
 var messageFunction = (client, message) => {
   console.log(message.toString());
   const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
@@ -291,6 +280,9 @@ const parseMessage = (msg, client) => {
       break;
     case kTcpCmdScan:
       processScan(msg, client);
+      break;
+    case kTcpCmdSd:
+      processSd(msg, client);
       break;
     case kTcpCmdStatus:
       // A simple loop back
@@ -404,7 +396,7 @@ const processChannelSettings = (msg, client) => {
                */
               (cs) => {
                 // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-              client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+              client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
             });
             syncingChanSettings = false;
           })
@@ -874,7 +866,7 @@ const _processProtocolBLE = (msg, client) => {
             if (verbose) console.log(`err starting new scan ${err}`);
           });
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop},${kTcpStop}`);
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       }
       break;
   }
@@ -1065,7 +1057,7 @@ const _processScanBLE = (msg, client) => {
             if (verbose) console.log(`err starting new scan ${err}`);
           });
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop},${kTcpStop}`);
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       }
       break;
   }
@@ -1177,7 +1169,7 @@ const _processScanSerial = (msg, client) => {
       client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeStatusNotScanning}${kTcpStop}`);
       break;
     case kTcpActionStop:
-      client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeErrorScanNoScanToStop},${kTcpStop}`);
+      client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       break;
   }
 };
@@ -1213,7 +1205,7 @@ const _processScanWifi = (msg, client) => {
         _scanStopWifi().catch(console.log);
         client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop},${kTcpStop}`);
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       }
       break;
   }
@@ -1235,6 +1227,94 @@ const processScan = (msg, client) => {
     case kTcpProtocolBLE:
     default:
       _processScanBLE(msg, client);
+      break;
+  }
+};
+
+const _processSdSerial = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      cyton.sdStart(msgElements[2])
+        .then(() => {
+          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStart},${err.message}${kTcpStop}`);
+        });
+      break;
+    case kTcpActionStop:
+      cyton.sdStop()
+        .then(() => {
+          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStop},${err.message}${kTcpStop}`);
+        });
+      break;
+  }
+};
+
+const _processSdWifi = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      if (_.isNull(wifi)) {
+        if (verbose) console.log("wifi not started, attempting to start before scan");
+        _protocolStartWifi((err) => {
+          if (err) {
+            client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+          } else {
+            _processScanWifiStart(client);
+          }
+        });
+      } else {
+        _processScanWifiStart(client);
+      }
+      break;
+    case kTcpActionStatus:
+      if (wifi.isSearching()) {
+        client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
+      } else {
+        client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+      }
+      break;
+    case kTcpActionStop:
+      if (wifi.isSearching()) {
+        _scanStopWifi().catch(console.log);
+        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+      } else {
+        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
+      }
+      break;
+  }
+};
+
+/**
+ * For processing incoming sd commands
+ * @param msg {String} - The actual message. cmd,action,end
+ * @param client {Object} - writable TCP client
+ */
+const processSd = (msg, client) => {
+  switch (curTcpProtocol) {
+    case kTcpProtocolWiFi:
+      _processSdWifi(msg, client);
+      break;
+    case kTcpProtocolSerial:
+      _processScanSerial(msg, client);
+      break;
+    case kTcpProtocolBLE:
+    default:
+      _processScanBLE(msg, client);
+      break;
+  }
+  switch (curTcpProtocol) {
+    case kTcpProtocolWiFi:
+    case kTcpProtocolSerial:
+    default:
+      _processSd(msg, client);
       break;
   }
 };
