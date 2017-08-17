@@ -1,3 +1,11 @@
+# 1.0.1
+
+Add channel setting commands. 
+
+# 1.0.0
+
+Add cyton and wifi support
+
 # 0.4.1
 
 ### New Features
