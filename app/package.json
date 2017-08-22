@@ -14,7 +14,7 @@
     "lodash": "^4.16.6",
     "menubar": "^5.1.0",
     "node-ssdp": "^3.2.1",
-    "openbci": "^2.1.4",
+    "openbci": "^2.2.0",
     "openbci-ganglion": "^0.4.2",
     "openbci-utilities": "^0.1.5",
     "openbci-wifi": "^0.1.1"

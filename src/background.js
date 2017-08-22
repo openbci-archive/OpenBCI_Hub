@@ -78,6 +78,7 @@ const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
 
 let verbose = true;
+const sendCounts = true;
 
 let curTcpProtocol = kTcpProtocolBLE;
 
@@ -88,12 +89,12 @@ let ganglionHubError;
  */
 let ganglionBLE = null;
 let wifi = new Wifi({
-  sendCounts: true,
+  sendCounts,
   verbose: verbose,
-  latency: 10000
+  latency: 20000
 });
 let cyton = new Cyton({
-  sendCounts: true,
+  sendCounts,
   verbose: verbose
 });
 
@@ -191,6 +192,7 @@ var accelerometerFunction = (client, accelDataCounts) => {
  * @param sample {Object}
  * @param sample.sampleNumber {number}
  * @param sample.channelDataCounts {Array} Array of counts, no gain.
+ * @param sample.accelDataCounts {Array} Array of accel counts
  * @param sample.valid {Boolean} - If it is valid
  *  A sample object.
  */
@@ -206,6 +208,9 @@ var sampleFunction = (client, sample) => {
     packet += sample.channelDataCounts[j];
   }
   packet += `${kTcpStop}`;
+  if (sample.channelDataCounts.length > k.OBCINumberOfChannelsGanglion) {
+    accelerometerFunction(client, sample.accelDataCounts);
+  }
   // console.log(packet);
   client.write(packet);
 };
