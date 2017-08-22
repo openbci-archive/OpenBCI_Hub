@@ -2,7 +2,7 @@ import net from 'net';
 import { Ganglion } from 'openbci-ganglion'; // native npm module
 import { Wifi } from 'openbci-wifi';
 import { Constants } from 'openbci-utilities';
-import { Cyton } from 'openbci';
+import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
 
@@ -95,7 +95,8 @@ let wifi = new Wifi({
 });
 let cyton = new Cyton({
   sendCounts,
-  verbose: verbose
+  verbose: verbose,
+  debug: true
 });
 
 
@@ -146,10 +147,21 @@ net.createServer((client) => {
       }
     }
     if (cyton.isConnected()) {
-      cyton.disconnect()
-        .catch((err) => {
-          if (verbose) console.log(err);
-        })
+      if (cyton.isStreaming()) {
+        cyton.streamStop()
+          .then(() => {
+            return cyton.disconnect();
+          })
+          .catch((err) => {
+            if (verbose) console.log(err);
+          })
+      } else {
+        cyton.disconnect()
+          .catch((err) => {
+            if (verbose) console.log(err);
+          })
+      }
+
     }
 
   });
@@ -393,7 +405,12 @@ const processChannelSettings = (msg, client) => {
       } else {
         if (verbose) console.log('about to try and start register channel setting sync');
         syncingChanSettings = true;
-        cyton.syncRegisterSettings()
+
+        let funcer;
+        if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.syncRegisterSettings.bind(cyton);
+        else funcer = wifi.syncRegisterSettings.bind(wifi);
+
+        funcer()
           .then((channelSettings) => {
             _.forEach(channelSettings,
               /**
@@ -401,12 +418,12 @@ const processChannelSettings = (msg, client) => {
                */
               (cs) => {
                 // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-              client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-            });
+                client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+              });
             syncingChanSettings = false;
           })
           .catch((err) => {
-            console.log("aww err", err);
+            console.log("cyton serial aww err", err);
             client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
             syncingChanSettings = false;
           });
@@ -421,7 +438,12 @@ const processChannelSettings = (msg, client) => {
         const bias = Boolean(parseInt(msgElements[6]));
         const srb2 = Boolean(parseInt(msgElements[7]));
         const srb1 = Boolean(parseInt(msgElements[8]));
-        cyton.channelSet(channelNumber+1, powerDown, gain, inputType, bias, srb2, srb1)
+
+        let funcer = null;
+        if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.channelSet.bind(cyton);
+        else funcer = wifi.channelSet.bind(wifi);
+
+        funcer(channelNumber+1, powerDown, gain, inputType, bias, srb2, srb1)
           .then(() => {
             client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${kTcpActionSet}${kTcpStop}`);
           })
@@ -588,6 +610,8 @@ const _connectWifi = (msg, client) => {
       }
     })
     .catch((err) => {
+      cytonRemoveListeners();
+      console.log(err);
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
     })
 };
@@ -1350,7 +1374,7 @@ const cytonRemoveListeners = () => {
     cyton.removeAllListeners(k.OBCIEmitterSample);
     cyton.removeAllListeners(k.OBCIEmitterSynced);
   }
-}
+};
 
 const cytonSerialCleanup = () => {
   if (cyton) {
