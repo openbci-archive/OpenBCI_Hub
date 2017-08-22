@@ -17,6 +17,6 @@
     "openbci-cyton": "^1.0.2",
     "openbci-ganglion": "^0.4.3",
     "openbci-utilities": "^0.2.0",
-    "openbci-wifi": "^0.1.2"
+    "openbci-wifi": "^0.1.4"
   }
 }
