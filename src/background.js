@@ -91,12 +91,13 @@ let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
   verbose: verbose,
-  latency: 20000
+  latency: 20000,
+  debug: true
 });
 let cyton = new Cyton({
   sendCounts,
   verbose: verbose,
-  debug: true
+  debug: false
 });
 
 
@@ -356,8 +357,10 @@ const processBoardType = (msg, client) => {
     }
   } else if (curTcpProtocol === kTcpProtocolWiFi) {
     if (wifi.getBoardType() === boardType) {
+      if (verbose) console.log('board type was already set correct');
       client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
     } else {
+      if (verbose) console.log('set board type');
       client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Wifi is currently attached to ${wifi.getBoardType()}`}${kTcpStop}`);
 
     }
@@ -568,7 +571,7 @@ const _processConnectSerial = (msg, client) => {
     if (verbose) console.log('already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
-    if (verbose) console.log("not connected going to try and connect");
+    if (verbose) console.log("going to try and connect");
     let addr = msgElements[1];
     cyton.once(k.OBCIEmitterReady, onReadyFunc.bind(null, client));
     cyton.connect(addr)
@@ -595,19 +598,19 @@ const _connectWifi = (msg, client) => {
 
   wifi.connect(addr)
     .then(() => {
+      if (wifi.getNumberOfChannels() === 4) {
+        return wifi.setSampleRate(1600);
+      } else {
+        return wifi.setSampleRate(1000);
+      }
+    })
+    .then(() => {
       //TODO: Finish this connect
       if (verbose) console.log("connect success");
       client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
       wifi.on('sample', sampleFunction.bind(null, client));
       wifi.on('message', messageFunction.bind(null, client));
       return Promise.resolve();
-    })
-    .then(() => {
-      if (wifi.getNumberOfChannels() === 4) {
-        return wifi.setSampleRate(1600);
-      } else {
-        return wifi.setSampleRate(1000);
-      }
     })
     .catch((err) => {
       cytonRemoveListeners();
@@ -625,6 +628,7 @@ const _processConnectWifi = (msg, client) => {
     if (wifi.isSearching()) {
       wifi.searchStop()
         .then(() => {
+          wifi.removeAllListeners(k.OBCIEmitterWifiShield);
           _connectWifi(msg, client);
           return Promise.resolve();
         })
@@ -634,6 +638,7 @@ const _processConnectWifi = (msg, client) => {
           return Promise.reject();
         });
     } else {
+      wifi.removeAllListeners(k.OBCIEmitterWifiShield);
       _connectWifi(msg, client);
     }
   }
@@ -1100,7 +1105,7 @@ const _scanStartWifi = (client) => {
     client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${localName}${kTcpStop}`);
   };
   return new Promise((resolve, reject) => {
-    wifi.on('wifiShield', wifiFound);
+    wifi.on(k.OBCIEmitterWifiShield, wifiFound);
 
     wifi.searchStart()
       .then(() => {
