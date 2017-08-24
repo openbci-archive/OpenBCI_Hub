@@ -91,8 +91,7 @@ let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
   verbose: verbose,
-  latency: 20000,
-  debug: true
+  latency: 20000
 });
 let cyton = new Cyton({
   sendCounts,
@@ -624,7 +623,7 @@ const _processConnectWifi = (msg, client) => {
     if (verbose) console.log('already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
-    if (verbose) console.log("not connected going to try and connect");
+    if (verbose) console.log("going to try and connect");
     if (wifi.isSearching()) {
       wifi.searchStop()
         .then(() => {
