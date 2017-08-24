@@ -77,7 +77,7 @@ const kTcpProtocolSimulator = 'simulator';
 const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
 
-let verbose = true;
+let verbose = false;
 const sendCounts = true;
 
 let curTcpProtocol = kTcpProtocolBLE;
@@ -91,7 +91,7 @@ let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
   verbose: verbose,
-  latency: 20000
+  latency: 10000
 });
 let cyton = new Cyton({
   sendCounts,
@@ -360,7 +360,7 @@ const processBoardType = (msg, client) => {
       client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
     } else {
       if (verbose) console.log('set board type');
-      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Wifi is currently attached to ${wifi.getBoardType()}`}${kTcpStop}`);
+      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Wifi is currently attached to ${wifi.getBoardType()} which is not the same number of channels or board type as selected`}${kTcpStop}`);
 
     }
   } else {
