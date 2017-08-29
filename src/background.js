@@ -77,7 +77,7 @@ const kTcpProtocolSimulator = 'simulator';
 const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
 
-let verbose = false;
+let verbose = true;
 const sendCounts = true;
 
 let curTcpProtocol = kTcpProtocolBLE;
@@ -245,8 +245,8 @@ var messageFunction = (client, message) => {
  * @param client {Object}
  *  A TCP `net` client
  * @param impedanceObj {Object}
- *  - `channelNumber` {Number} - Channels 1, 2, 3, 4 or 0 for reference
- *  - `impedanceValue` {Number} - The impedance value in ohms
+ * @param impedanceObj.channelNumber {Number} - Channels 1, 2, 3, 4 or 0 for reference
+ * @param impedanceObj.impedanceValue {Number} - The impedance value in ohms
  */
 var impedanceFunction = (client, impedanceObj) => {
   const packet = `${kTcpCmdImpedance},${kTcpCodeSuccessImpedanceData},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
@@ -783,7 +783,7 @@ const processDisconnect = (msg, client) => {
   }
 };
 
-const processImpedance = (msg, client) => {
+const _processImpedanceGanglion = (msg, client) => {
   let msgElements = msg.toString().split(',');
   const action = msgElements[1];
   switch (action) {
@@ -806,6 +806,45 @@ const processImpedance = (msg, client) => {
         .catch((err) => {
           client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStop},${err}${kTcpStop}`);
         });
+      break;
+  }
+};
+
+const _processImpedanceWifi = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      wifi.impedanceStart()
+        .then(() => {
+          ganglionBLE.on(k.OBCIEmitterImpedance, impedanceFunction.bind(null, client));
+          client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStart},${err}${kTcpStop}`);
+        });
+      break;
+    case kTcpActionStop:
+      wifi.impedanceStop()
+        .then(() => {
+          ganglionBLE.removeAllListeners(k.OBCIEmitterImpedance);
+          client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStop},${err}${kTcpStop}`);
+        });
+      break;
+  }
+};
+
+const processImpedance = (msg, client) => {
+  switch (curTcpProtocol) {
+    case kTcpProtocolWiFi:
+      _processImpedanceWifi(client);
+      break;
+    case kTcpProtocolBLE:
+    default:
+      _processImpedanceGanglion(client);
       break;
   }
 };
