@@ -303,7 +303,7 @@ const parseMessage = (msg, client) => {
       processDisconnect(msg, client);
       break;
     case kTcpCmdExamine:
-      processExamine(msd, client);
+      processExamine(msg, client);
       break;
     case kTcpCmdAccelerometer:
       processAccelerometer(msg, client);
@@ -611,8 +611,6 @@ const _connectWifi = (msg, client) => {
 
   if (verbose) console.log(`Connecting to WiFi Shield called ${msgElements[1]}`);
 
-  const sampleRate = parseInt(msgElements[2]);
-
   wifi.connect({
       latency: parseInt(msgElements[3]),
       shieldName: msgElements[1],
@@ -627,7 +625,7 @@ const _connectWifi = (msg, client) => {
       return Promise.resolve();
     })
     .catch((err) => {
-      cytonRemoveListeners();
+      wifiRemoveListeners();
       console.log(err);
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
     })
@@ -799,8 +797,52 @@ const processDisconnect = (msg, client) => {
   }
 };
 
-const processExamine = (msg, client) => {
+const _examineWifi = (msg, client) => {
+  let msgElements = msg.toString().split(',');
 
+  if (verbose) console.log(`Examining to WiFi Shield called ${msgElements[1]}`);
+
+  wifi.connect({
+    shieldName: msgElements[1]
+  })
+    .then(() => {
+      //TODO: Finish this connect
+      if (verbose) console.log("connect for examine success");
+      client.write(`${kTcpCmdExamine},${kTcpCodeSuccess}${kTcpStop}`);
+      return Promise.resolve();
+    })
+    .catch((err) => {
+      wifiRemoveListeners();
+      console.log(err);
+      client.write(`${kTcpCmdExamine},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+    })
+};
+
+const processExamine = (msg, client) => {
+  if (wifi.isConnected()) {
+    if (verbose) console.log('Already connected');
+    client.write(`${kTcpCmdExamine},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
+  } else {
+    if (verbose) console.log('Going to try and connect');
+    if (wifi.isSearching()) {
+      wifi.searchStop()
+        .then(() => {
+          client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+          if (verbose) console.log('Stopped search before connect');
+          wifi.removeAllListeners(k.OBCIEmitterWifiShield);
+          _examineWifi(msg, client);
+          return Promise.resolve();
+        })
+        .catch((err) => {
+          console.log("err", err);
+          client.write(`${kTcpCmdExamine},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
+          return Promise.reject();
+        });
+    } else {
+      wifi.removeAllListeners(k.OBCIEmitterWifiShield);
+      _examineWifi(msg, client);
+    }
+  }
 };
 
 const _processImpedanceCyton = (msg, client) => {
