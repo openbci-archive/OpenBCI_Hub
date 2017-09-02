@@ -22,14 +22,47 @@ const kTcpCmdCommand = 'k';
 const kTcpCmdData = 't';
 const kTcpCmdDisconnect = 'd';
 const kTcpCmdError = 'e';
+const kTcpCmdExamine = 'x';
 const kTcpCmdImpedance = 'i';
 const kTcpCmdLog = 'l';
 const kTcpCmdProtocol = 'p';
 const kTcpCmdScan = 's';
 const kTcpCmdSd = 'm';
 const kTcpCmdStatus = 'q';
+const kTcpCmdWifi = 'w';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeBadBLEStartUp = 501;
+const kTcpCodeErrorUnknown = 499;
+const kTcpCodeErrorAlreadyConnected = 408;
+const kTcpCodeErrorAccelerometerCouldNotStart = 416;
+const kTcpCodeErrorAccelerometerCouldNotStop = 417;
+const kTcpCodeErrorChannelSettings = 423;
+const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
+const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
+const kTcpCodeErrorChannelSettingsFailedToParse = 425;
+const kTcpCodeErrorCommandNotAbleToBeSent = 406;
+const kTcpCodeErrorDeviceNotFound = 405;
+const kTcpCodeErrorImpedanceCouldNotStart = 414;
+const kTcpCodeErrorImpedanceCouldNotStop = 415;
+const kTcpCodeErrorImpedanceFailedToSetImpedance = 430;
+const kTcpCodeErrorImpedanceFailedToParse = 431;
+const kTcpCodeErrorNoOpenBleDevice = 400;
+const kTcpCodeErrorProtocolUnknown = 418;
+const kTcpCodeErrorProtocolBLEStart = 419;
+const kTcpCodeErrorProtocolNotStarted = 420;
+const kTcpCodeErrorUnableToConnect = 402;
+const kTcpCodeErrorUnableToConnectTimeout = 413;
+const kTcpCodeErrorUnableToDisconnect = 401;
+const kTcpCodeErrorUnableToSetBoardType = 421;
+const kTcpCodeErrorScanAlreadyScanning = 409;
+const kTcpCodeErrorScanNoneFound = 407;
+const kTcpCodeErrorScanNoScanToStop = 410;
+const kTcpCodeErrorScanCouldNotStart = 412;
+const kTcpCodeErrorScanCouldNotStop = 411;
+const kTcpCodeErrorWifiActionNotRecognized = 427;
+const kTcpCodeErrorWifiCouldNotEraseCredentials = 428;
+const kTcpCodeErrorWifiCouldNotSetLatency = 429;
+const kTcpCodeErrorWifiNotConnected = 426;
 const kTcpCodeSuccess = 200;
 const kTcpCodeSuccessGanglionFound = 201;
 const kTcpCodeSuccessAccelData = 202;
@@ -44,31 +77,7 @@ const kTcpCodeStatusScanning = 302;
 const kTcpCodeStatusNotScanning = 303;
 const kTcpCodeStatusStarted = 304;
 const kTcpCodeStatusStopped = 305;
-const kTcpCodeErrorUnknown = 499;
-const kTcpCodeErrorAlreadyConnected = 408;
-const kTcpCodeErrorAccelerometerCouldNotStart = 416;
-const kTcpCodeErrorAccelerometerCouldNotStop = 417;
-const kTcpCodeErrorChannelSettings = 423;
-const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
-const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
-const kTcpCodeErrorChannelSettingsFailedToParse = 425;
-const kTcpCodeErrorCommandNotAbleToBeSent = 406;
-const kTcpCodeErrorDeviceNotFound = 405;
-const kTcpCodeErrorImpedanceCouldNotStart = 414;
-const kTcpCodeErrorImpedanceCouldNotStop = 415;
-const kTcpCodeErrorNoOpenBleDevice = 400;
-const kTcpCodeErrorProtocolUnknown = 418;
-const kTcpCodeErrorProtocolBLEStart = 419;
-const kTcpCodeErrorProtocolNotStarted = 420;
-const kTcpCodeErrorUnableToConnect = 402;
-const kTcpCodeErrorUnableToConnectTimeout = 413;
-const kTcpCodeErrorUnableToDisconnect = 401;
-const kTcpCodeErrorUnableToSetBoardType = 421;
-const kTcpCodeErrorScanAlreadyScanning = 409;
-const kTcpCodeErrorScanNoneFound = 407;
-const kTcpCodeErrorScanNoScanToStop = 410;
-const kTcpCodeErrorScanCouldNotStart = 412;
-const kTcpCodeErrorScanCouldNotStop = 411;
+const kTcpCodeTimeoutScanStopped = 432;
 const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpProtocolBLE = 'ble';
@@ -76,8 +85,13 @@ const kTcpProtocolSerial = 'serial';
 const kTcpProtocolSimulator = 'simulator';
 const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
+const kTcpWifiEraseCredentials = 'eraseCredentials';
+const kTcpWifiGetFirmwareVersion = 'getFirmwareVersion';
+const kTcpWifiGetIpAddress = 'getIpAddress';
+const kTcpWifiGetMacAddress = 'getMacAddress';
+const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
 
-let verbose = false;
+let verbose = true;
 const sendCounts = true;
 
 let curTcpProtocol = kTcpProtocolBLE;
@@ -144,6 +158,9 @@ net.createServer((client) => {
           .catch((err) => {
             if (verbose) console.log(err);
           })
+      }
+      if (wifi.isSearching()) {
+        _scanStopWifi(null, false).catch(console.log);
       }
     }
     if (cyton.isConnected()) {
@@ -221,7 +238,9 @@ var sampleFunction = (client, sample) => {
   }
   packet += `${kTcpStop}`;
   if (sample.channelDataCounts.length > k.OBCINumberOfChannelsGanglion) {
-    accelerometerFunction(client, sample.accelDataCounts);
+    if (sample.hasOwnProperty('accelDataCounts')) {
+      accelerometerFunction(client, sample.accelDataCounts);
+    }
   }
   // console.log(packet);
   client.write(packet);
@@ -245,8 +264,8 @@ var messageFunction = (client, message) => {
  * @param client {Object}
  *  A TCP `net` client
  * @param impedanceObj {Object}
- *  - `channelNumber` {Number} - Channels 1, 2, 3, 4 or 0 for reference
- *  - `impedanceValue` {Number} - The impedance value in ohms
+ * @param impedanceObj.channelNumber {Number} - Channels 1, 2, 3, 4 or 0 for reference
+ * @param impedanceObj.impedanceValue {Number} - The impedance value in ohms
  */
 var impedanceFunction = (client, impedanceObj) => {
   const packet = `${kTcpCmdImpedance},${kTcpCodeSuccessImpedanceData},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
@@ -286,6 +305,9 @@ const parseMessage = (msg, client) => {
     case kTcpCmdDisconnect:
       processDisconnect(msg, client);
       break;
+    case kTcpCmdExamine:
+      processExamine(msg, client);
+      break;
     case kTcpCmdAccelerometer:
       processAccelerometer(msg, client);
       break;
@@ -300,6 +322,9 @@ const parseMessage = (msg, client) => {
       break;
     case kTcpCmdSd:
       processSd(msg, client);
+      break;
+    case kTcpCmdWifi:
+      processWifi(msg, client);
       break;
     case kTcpCmdStatus:
       // A simple loop back
@@ -426,7 +451,7 @@ const processChannelSettings = (msg, client) => {
           })
           .catch((err) => {
             console.log("cyton serial aww err", err);
-            client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
+            // client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
             syncingChanSettings = false;
           });
       }
@@ -495,7 +520,7 @@ const _processCommandSerial = (msg, client) => {
       client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
     })
     .catch((err) => {
-      if (verbose) console.log('unable to write command', err);
+      if (verbose) console.log('serial unable to write command', err);
       client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
@@ -511,7 +536,7 @@ const _processCommandWifi = (msg, client) => {
       client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
     })
     .catch((err) => {
-      if (verbose) console.log('unable to write command', err);
+      if (verbose) console.log('wifi unable to write command', err);
       client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
@@ -586,22 +611,12 @@ const _processConnectSerial = (msg, client) => {
 const _connectWifi = (msg, client) => {
   let msgElements = msg.toString().split(',');
 
-  if (verbose) console.log(`attempting to connect to ${msgElements[1]}`);
+  if (verbose) console.log(`Connecting to WiFi Shield called ${msgElements[1]}`);
 
-  let addr = msgElements[1];
-  _.forEach(localArray, (obj) => {
-    if (obj.localName === addr) {
-      addr = obj.ipAddress;
-    }
-  });
-
-  wifi.connect(addr)
-    .then(() => {
-      if (wifi.getNumberOfChannels() === 4) {
-        return wifi.setSampleRate(1600);
-      } else {
-        return wifi.setSampleRate(1000);
-      }
+  wifi.connect({
+      latency: parseInt(msgElements[3]),
+      shieldName: msgElements[1],
+      sampleRate: parseInt(msgElements[2])
     })
     .then(() => {
       //TODO: Finish this connect
@@ -612,7 +627,7 @@ const _connectWifi = (msg, client) => {
       return Promise.resolve();
     })
     .catch((err) => {
-      cytonRemoveListeners();
+      wifiRemoveListeners();
       console.log(err);
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
     })
@@ -620,13 +635,14 @@ const _connectWifi = (msg, client) => {
 
 const _processConnectWifi = (msg, client) => {
   if (wifi.isConnected()) {
-    if (verbose) console.log('already connected');
+    if (verbose) console.log('Already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
-    if (verbose) console.log("going to try and connect");
+    if (verbose) console.log('Going to try and connect');
     if (wifi.isSearching()) {
       wifi.searchStop()
         .then(() => {
+          if (verbose) console.log('Stopped search before connect');
           wifi.removeAllListeners(k.OBCIEmitterWifiShield);
           _connectWifi(msg, client);
           return Promise.resolve();
@@ -783,7 +799,86 @@ const processDisconnect = (msg, client) => {
   }
 };
 
-const processImpedance = (msg, client) => {
+const _examineWifi = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+
+  if (verbose) console.log(`Examining to WiFi Shield called ${msgElements[1]}`);
+
+  wifi.connect({
+    examineMode: true,
+    shieldName: msgElements[1]
+  })
+    .then(() => {
+      //TODO: Finish this connect
+      if (verbose) console.log("connect for examine success");
+      client.write(`${kTcpCmdExamine},${kTcpCodeSuccess}${kTcpStop}`);
+      return Promise.resolve();
+    })
+    .catch((err) => {
+      wifiRemoveListeners();
+      console.log(err);
+      client.write(`${kTcpCmdExamine},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+    })
+};
+
+const processExamine = (msg, client) => {
+  if (wifi.isConnected()) {
+    if (verbose) console.log('Already connected');
+    client.write(`${kTcpCmdExamine},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
+  } else {
+    if (verbose) console.log('Going to try and connect');
+    if (wifi.isSearching()) {
+      wifi.searchStop()
+        .then(() => {
+          client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+          if (verbose) console.log('Stopped search before connect');
+          wifi.removeAllListeners(k.OBCIEmitterWifiShield);
+          _examineWifi(msg, client);
+          return Promise.resolve();
+        })
+        .catch((err) => {
+          console.log("err", err);
+          client.write(`${kTcpCmdExamine},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
+          return Promise.reject();
+        });
+    } else {
+      wifi.removeAllListeners(k.OBCIEmitterWifiShield);
+      _examineWifi(msg, client);
+    }
+  }
+};
+
+const _processImpedanceCyton = (msg, client) => {
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionSet:
+      try {
+        const channelNumber = parseInt(msgElements[2]);
+        const pInputApplied = Boolean(parseInt(msgElements[3]));
+        const nInputApplied = Boolean(parseInt(msgElements[4]));
+
+        // console.log('channelNumber', channelNumber, 'pInputApplied', pInputApplied, 'nInputApplied', nInputApplied);
+
+        let funcer = null;
+        if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.impedanceSet.bind(cyton);
+        else funcer = wifi.impedanceSet.bind(wifi);
+
+        funcer(channelNumber, pInputApplied, nInputApplied)
+          .then(() => {
+            client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionSet}${kTcpStop}`);
+          })
+          .catch((err) => {
+            client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceFailedToSetImpedance},${err.message}${kTcpStop}`);
+          });
+      } catch (e) {
+        client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceFailedToParse},${e.message}${kTcpStop}`);
+      }
+      break;
+  }
+};
+
+const _processImpedanceGanglion = (msg, client) => {
   let msgElements = msg.toString().split(',');
   const action = msgElements[1];
   switch (action) {
@@ -810,6 +905,51 @@ const processImpedance = (msg, client) => {
   }
 };
 
+const _processImpedanceWifi = (msg, client) => {
+  if (wifi.getNumberOfChannels() > k.OBCINumberOfChannelsGanglion) {
+    _processImpedanceCyton(msg, client);
+    return;
+  }
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpActionStart:
+      wifi.impedanceStart()
+        .then(() => {
+          wifi.on(k.OBCIEmitterImpedance, impedanceFunction.bind(null, client));
+          client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStart},${err}${kTcpStop}`);
+        });
+      break;
+    case kTcpActionStop:
+      wifi.impedanceStop()
+        .then(() => {
+          wifi.removeAllListeners(k.OBCIEmitterImpedance);
+          client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStop},${err}${kTcpStop}`);
+        });
+      break;
+  }
+};
+
+const processImpedance = (msg, client) => {
+  switch (curTcpProtocol) {
+    case kTcpProtocolSerial:
+      _processImpedanceCyton(msg, client);
+      break;
+    case kTcpProtocolWiFi:
+      _processImpedanceWifi(msg, client);
+      break;
+    case kTcpProtocolBLE:
+      _processImpedanceGanglion(msg, client);
+      break;
+  }
+};
+
 const protocolSafeStart = () => {
   if (ganglionBLE) {
     ganglionBLECleanup();
@@ -826,7 +966,7 @@ const _protocolStartBLE = () => {
   return new Promise((resolve, reject) => {
     protocolSafeStart();
     ganglionBLE = new Ganglion({
-      nobleScanOnPowerOn: false,
+      nobleScanOnPowerOn: true,
       sendCounts: true,
       verbose: verbose
     }, (err) => {
@@ -876,31 +1016,34 @@ const _processProtocolBLE = (msg, client) => {
     case kTcpActionStart:
       _protocolStartBLE()
         .then(() => {
-          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolBLE}${kTcpStop}`);
+          const ganglionFound = (peripheral) => {
+            const localName = peripheral.advertisement.localName;
+            if (verbose) console.log(`Ganglion found: ${localName}`);
+            client.write(`${kTcpCmdScan},${kTcpCodeSuccessGanglionFound},${localName}${kTcpStop}`);
+          };
+          ganglionBLE.on(k.OBCIEmitterGanglionFound, ganglionFound);
+          ganglionBLE.once(k.OBCINobleEmitterScanStop, () => {
+            ganglionBLE.removeAllListeners(k.OBCIEmitterGanglionFound);
+            if (client) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+          });
+          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolBLE},${kTcpActionStart}${kTcpStop}`);
+          client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+
         })
         .catch((err) => {
           client.write(`${kTcpCmdProtocol},${kTcpCodeErrorProtocolBLEStart},${err}${kTcpStop}`);
         });
       break;
     case kTcpActionStatus:
-      if (ganglionBLE.isSearching()) {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
+      if (ganglionBLE) {
+        client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolBLE},${kTcpActionStatus}${kTcpStop}`);
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+        client.write(`${kTcpCmdProtocol},${kTcpCodeBadBLEStartUp},${kTcpProtocolBLE},${kTcpActionStatus}${kTcpStop}`);
       }
       break;
     case kTcpActionStop:
-      if (ganglionBLE.isSearching()) {
-        _scanStopBLE(client, true)
-          .then(() => {
-            if (verbose) console.log(`stopped scan`);
-          })
-          .catch((err) => {
-            if (verbose) console.log(`err starting new scan ${err}`);
-          });
-      } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
-      }
+      ganglionBLECleanup();
+      client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolBLE},${kTcpActionStop}${kTcpStop}`);
       break;
   }
 };
@@ -1103,8 +1246,14 @@ const _scanStartWifi = (client) => {
     if (verbose) console.log(`Wifi shield found: ${obj}`);
     client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${localName}${kTcpStop}`);
   };
+  const scanStopped = () => {
+    if (verbose) console.log('Scan stopped for Wifi shields');
+    if (client) client.write(`${kTcpCmdScan},${kTcpCodeTimeoutScanStopped}${kTcpStop}`);
+    wifiRemoveListeners();
+  };
   return new Promise((resolve, reject) => {
     wifi.on(k.OBCIEmitterWifiShield, wifiFound);
+    wifi.once('scanStopped', scanStopped);
 
     wifi.searchStart()
       .then(() => {
@@ -1112,7 +1261,7 @@ const _scanStartWifi = (client) => {
         resolve();
       })
       .catch((err) => {
-        wifi.removeAllListeners(k.OBCIEmitterWifiShield);
+        wifiRemoveListeners();
         client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${kTcpProtocolWiFi},${err}${kTcpStop}`);
         reject(err);
       });
@@ -1129,15 +1278,14 @@ const _scanStartWifi = (client) => {
 const _scanStopWifi = (client, writeOutMessage) => {
   return new Promise((resolve, reject) => {
     if (_.isUndefined(writeOutMessage)) writeOutMessage = true;
-    wifi.removeAllListeners(k.OBCIEmitterWifiShield);
-    wifi.removeAllListeners(k.OBCIEmitterSample);
+    wifiRemoveListeners();
     wifi.searchStop()
       .then(() => {
         if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         resolve();
       })
       .catch((err) => {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${kTcpProtocolWiFi},${err}${kTcpStop}`);
+        if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${kTcpProtocolWiFi},${err}${kTcpStop}`);
         reject(err);
       });
   });
@@ -1336,18 +1484,49 @@ const processSd = (msg, client) => {
       _processSdWifi(msg, client);
       break;
     case kTcpProtocolSerial:
-      _processScanSerial(msg, client);
-      break;
-    case kTcpProtocolBLE:
     default:
-      _processScanBLE(msg, client);
+      _processSdSerial(msg, client);
       break;
   }
-  switch (curTcpProtocol) {
-    case kTcpProtocolWiFi:
-    case kTcpProtocolSerial:
+};
+
+
+/**
+ * For processing incoming wifi commands
+ * @param msg {String} - The actual message. cmd,action,end
+ * @param client {Object} - writable TCP client
+ */
+const processWifi = (msg, client) => {
+  if (_.isNull(wifi)) {
+    client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiNotConnected}${kTcpStop}`);
+    return;
+  }
+  let msgElements = msg.toString().split(',');
+  const action = msgElements[1];
+  switch (action) {
+    case kTcpWifiEraseCredentials:
+      wifi.eraseWifiCredentials()
+        .then((res) => {
+          client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiEraseCredentials},${res}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiCouldNotEraseCredentials},${err.message}${kTcpStop}`);
+        });
+      break;
+    case kTcpWifiGetFirmwareVersion:
+      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetFirmwareVersion},${wifi.getFirmwareVersion()}${kTcpStop}`);
+      break;
+    case kTcpWifiGetIpAddress:
+      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetIpAddress},${wifi.getIpAddress()}${kTcpStop}`);
+      break;
+    case kTcpWifiGetMacAddress:
+      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetMacAddress},${wifi.getMacAddress()}${kTcpStop}`);
+      break;
+    case kTcpWifiGetTypeOfAttachedBoard:
+      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetTypeOfAttachedBoard},${wifi.getBoardType()}${kTcpStop}`);
+      break;
     default:
-      _processSd(msg, client);
+      client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiActionNotRecognized}${kTcpStop}`);
       break;
   }
 };
@@ -1389,10 +1568,16 @@ const cytonSerialCleanup = () => {
   }
 };
 
+const wifiRemoveListeners = () => {
+  wifi.removeAllListeners(k.OBCIEmitterWifiShield);
+  wifi.removeAllListeners(k.OBCIEmitterSample);
+  wifi.removeAllListeners(k.OBCIEmitterImpedance);
+  wifi.removeAllListeners('scanStopped');
+};
+
 const wifiCleanup = () => {
   if (wifi) {
-    wifi.removeAllListeners(k.OBCIEmitterWifiShield);
-    wifi.removeAllListeners(k.OBCIEmitterSample);
+    wifiRemoveListeners();
     wifi.disconnect().catch(console.log);
     if (wifi.wifiClient) {
       wifi.wifiClient.stop();
