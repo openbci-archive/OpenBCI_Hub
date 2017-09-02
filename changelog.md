@@ -1,3 +1,7 @@
+# v1.1.0
+
+Add a lot more fixes.
+
 # v1.0.2
 
 Fix many issues with cyton and ganglion and wifi.
