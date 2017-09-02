@@ -91,7 +91,7 @@ const kTcpWifiGetIpAddress = 'getIpAddress';
 const kTcpWifiGetMacAddress = 'getMacAddress';
 const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
 
-let verbose = true;
+let verbose = false;
 const sendCounts = true;
 
 let curTcpProtocol = kTcpProtocolBLE;
