@@ -5,6 +5,7 @@ import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
+import { ipcMain } from 'electron';
 
 
 /** TCP */
@@ -90,6 +91,10 @@ const kTcpWifiGetFirmwareVersion = 'getFirmwareVersion';
 const kTcpWifiGetIpAddress = 'getIpAddress';
 const kTcpWifiGetMacAddress = 'getMacAddress';
 const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
+
+ipcMain.on("quit", () => {
+  mb.app.quit();
+})
 
 const debug = false;
 const verbose = false;
