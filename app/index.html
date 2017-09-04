@@ -11,9 +11,10 @@
             color: #FFF;
             padding: 10px;
         }
-        button {
-            /*margin: 0 auto;*/
+        .quitBtn {
+            margin: 0 auto auto auto;
             color: crimson;
+            display: block;
         }
     </style>
     <title>OpenBCI Hub</title>
@@ -21,7 +22,9 @@
 <body>
     <div style="width:100%; height:100%">
         <h1 id="connection">OpenBCI Electron Hub</h1>
-        <button id="quitButton">Quit OpenBCI Hub</button>
+        <div>
+            <button id="quitButton" class="quitBtn">Quit OpenBCI Hub</button>
+        </div>
     </div>
     <script charset="utf-8">require('./index')</script>
 </body>
