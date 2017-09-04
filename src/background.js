@@ -41,6 +41,7 @@ const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
 const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
 const kTcpCodeErrorChannelSettingsFailedToParse = 425;
 const kTcpCodeErrorCommandNotAbleToBeSent = 406;
+const kTcpCodeErrorCommandNotRecognized = 432;
 const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
 const kTcpCodeErrorImpedanceCouldNotStop = 415;
@@ -91,9 +92,10 @@ const kTcpWifiGetIpAddress = 'getIpAddress';
 const kTcpWifiGetMacAddress = 'getMacAddress';
 const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
 
-let verbose = false;
+const verbose = false;
 const sendCounts = true;
 
+let syncingChanSettings = false;
 let curTcpProtocol = kTcpProtocolBLE;
 
 let ganglionHubError;
@@ -285,6 +287,10 @@ var closeFunction = (client) => {
   }
 };
 
+const unrecognizedCommand = (client, cmd, msg) => {
+  client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotRecognized},${msg}${kTcpStop}`);
+};
+
 const parseMessage = (msg, client) => {
   let msgElements = msg.toString().split(',');
   // var char = String.fromCharCode(msg[0])
@@ -332,7 +338,7 @@ const parseMessage = (msg, client) => {
       break;
     case kTcpCmdError:
     default:
-      client.write(`${kTcpCmdError},${kTcpCodeBadPacketData},Error: command not recognized${kTcpStop}`);
+      unrecognizedCommand(client, kTcpCmdError, msgElements[0]);
       break;
   }
 };
@@ -384,14 +390,55 @@ const processBoardType = (msg, client) => {
       if (verbose) console.log('board type was already set correct');
       client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
     } else {
-      if (verbose) console.log('set board type');
-      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Wifi is currently attached to ${wifi.getBoardType()} which is not the same number of channels or board type as selected`}${kTcpStop}`);
+      if (verbose) console.log('wifi currently connected to set board type');
+      let response = "";
+      if (wifi.getBoardType() === 'none') {
+        response = "WiFi Shield is not connected to any OpenBCI board";
+      } else {
+        response = `Wifi is currently attached to ${wifi.getBoardType()} which is not the same number of channels or board type as selected`;
+      }
+      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${response}${kTcpStop}`);
 
     }
   } else {
     client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Set protocol first to Serial, cur protocol is ${curTcpProtocol}`}${kTcpStop}`);
   }
 };
+
+const _syncChanSettingsStart = (client) => {
+  if (syncingChanSettings) {
+    client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsSyncInProgress},${kTcpActionStart}${kTcpStop}`);
+  } else {
+    if (verbose) console.log('about to try and start register channel setting sync');
+    syncingChanSettings = true;
+
+    let funcer;
+    if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.syncRegisterSettings.bind(cyton);
+    else funcer = wifi.syncRegisterSettings.bind(wifi);
+
+    try {
+      funcer()
+        .then((channelSettings) => {
+          _.forEach(channelSettings,
+            /**
+             * @param cs {ChannelSettingsObject}
+             */
+            (cs) => {
+              // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+              client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+            });
+          syncingChanSettings = false;
+        })
+        .catch((err) => {
+          console.log("cyton serial aww err", err);
+          // client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
+          syncingChanSettings = false;
+        });
+    } catch (e) {
+      if (verbose) console.log(e);
+    }
+  }
+}
 
 /**
  * @typedef {Object} ChannelSettingsObject - See page 50 of the ads1299.pdf
@@ -420,41 +467,12 @@ const processBoardType = (msg, client) => {
  *                      channels inverting inputs. `false` when switches open, disconnected, and `true` when switches
  *                      closed, or connected. (Default is `false`)
  */
-
-let syncingChanSettings = false;
 const processChannelSettings = (msg, client) => {
   let msgElements = msg.toString().split(',');
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      if (syncingChanSettings) {
-        client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsSyncInProgress},${kTcpActionStart}${kTcpStop}`);
-      } else {
-        if (verbose) console.log('about to try and start register channel setting sync');
-        syncingChanSettings = true;
-
-        let funcer;
-        if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.syncRegisterSettings.bind(cyton);
-        else funcer = wifi.syncRegisterSettings.bind(wifi);
-
-        funcer()
-          .then((channelSettings) => {
-            _.forEach(channelSettings,
-              /**
-               * @param cs {ChannelSettingsObject}
-               */
-              (cs) => {
-                // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-                client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-              });
-            syncingChanSettings = false;
-          })
-          .catch((err) => {
-            console.log("cyton serial aww err", err);
-            // client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
-            syncingChanSettings = false;
-          });
-      }
+      _syncChanSettingsStart(client);
       break;
     case kTcpActionSet:
       try {
