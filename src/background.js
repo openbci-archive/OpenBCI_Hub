@@ -7,7 +7,6 @@ import menubar from 'menubar';
 import * as _ from 'lodash';
 
 
-
 /** TCP */
 const k = Constants;
 const kTcpActionSet = 'set';
@@ -92,6 +91,7 @@ const kTcpWifiGetIpAddress = 'getIpAddress';
 const kTcpWifiGetMacAddress = 'getMacAddress';
 const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
 
+const debug = false;
 const verbose = false;
 const sendCounts = true;
 
@@ -107,12 +107,13 @@ let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
   verbose: verbose,
-  latency: 10000
+  latency: 10000,
+  debug: true
 });
 let cyton = new Cyton({
   sendCounts,
   verbose: verbose,
-  debug: false
+  debug: true
 });
 
 
@@ -274,17 +275,8 @@ var impedanceFunction = (client, impedanceObj) => {
   client.write(packet);
 };
 
-var closeFunction = (client) => {
+var closeFunction = () => {
   if (verbose) console.log('close event fired');
-  if (ganglionBLE) {
-    ganglionBLE.removeAllListeners('accelerometer');
-    ganglionBLE.removeAllListeners('sample');
-    ganglionBLE.removeAllListeners('message');
-    ganglionBLE.removeAllListeners('impedance');
-  }
-  if (!client.destroyed) {
-    client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
-  }
 };
 
 const unrecognizedCommand = (client, cmd, msg) => {
@@ -770,10 +762,10 @@ const _processDisconnectBLE = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectSerial = (client) => {
-  cytonRemoveListeners();
   cyton.disconnect()
     .then(() => {
       if (verbose) console.log("disconnect resolved");
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
     })
     .catch((err) => {
       if (verbose) console.log("failed to disconnect with err: ", err.message);
@@ -786,8 +778,7 @@ const _processDisconnectSerial = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectWifi = (client) => {
-  wifi.removeAllListeners('sample');
-  wifi.removeAllListeners('messages');
+  wifiRemoveListeners();
   wifi.disconnect()
     .then(() => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
@@ -1073,11 +1064,11 @@ const _processProtocolSerial = (msg, client) => {
     case kTcpActionStart:
       _protocolStartSerial()
         .then(() => {
-          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolSerial}${kTcpStop}`);
+          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolSerial},${kTcpActionStart}${kTcpStop}`);
         });
       break;
     case kTcpActionStatus:
-      if (wifi) {
+      if (cyton) {
         client.write(`${kTcpCmdProtocol},${kTcpCodeStatusStarted}${kTcpStop}`);
       } else {
         client.write(`${kTcpCmdProtocol},${kTcpCodeStatusStopped}${kTcpStop}`);
@@ -1085,7 +1076,7 @@ const _processProtocolSerial = (msg, client) => {
       break;
     case kTcpActionStop:
       cytonSerialCleanup();
-      client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess}${kTcpStop}`);
+      client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolSerial},${kTcpActionStop}${kTcpStop}`);
       break;
   }
 };
@@ -1097,7 +1088,7 @@ const _processProtocolWifi = (msg, client) => {
     case kTcpActionStart:
       _protocolStartWifi()
         .then(() => {
-          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolWiFi}${kTcpStop}`);
+          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolWiFi},${kTcpActionStart}${kTcpStop}`);
         });
       break;
     case kTcpActionStatus:
@@ -1546,6 +1537,17 @@ const processWifi = (msg, client) => {
     default:
       client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiActionNotRecognized}${kTcpStop}`);
       break;
+  }
+};
+
+const ganglionRemoveListeners = () => {
+  if (ganglionBLE) {
+    ganglionBLE.removeAllListeners('accelerometer');
+    ganglionBLE.removeAllListeners('sample');
+    ganglionBLE.removeAllListeners('message');
+    ganglionBLE.removeAllListeners('impedance');
+    ganglionBLE.removeAllListeners('ganglionFound');
+    ganglionBLE.removeAllListeners('close');
   }
 };
 
