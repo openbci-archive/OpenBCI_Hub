@@ -1627,7 +1627,9 @@ function exitHandler (options, err) {
 }
 
 let mb = menubar({
-  icon: './resources/icons/icon.png'
+  icon: 'resources/icons/icon.png',
+  width: 300,
+  height: 200
 });
 
 mb.on('ready', function ready () {

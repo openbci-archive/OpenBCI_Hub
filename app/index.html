@@ -1,10 +1,28 @@
 <html>
 <head>
+    <style>
+        body {
+            background-color: #284470;
+        }
+        h1 {
+            text-align: center;
+            margin: auto;
+            width: 50%;
+            color: #FFF;
+            padding: 10px;
+        }
+        button {
+            /*margin: 0 auto;*/
+            color: crimson;
+        }
+    </style>
     <title>OpenBCI Hub</title>
 </head>
 <body>
-    <h1 id="connection">Ganglion hub is running</h1>
-    <button id="quitButton">Quit OpenBCI Hub</button>
+    <div style="width:100%; height:100%">
+        <h1 id="connection">OpenBCI Electron Hub</h1>
+        <button id="quitButton">Quit OpenBCI Hub</button>
+    </div>
     <script charset="utf-8">require('./index')</script>
 </body>
 </html>
