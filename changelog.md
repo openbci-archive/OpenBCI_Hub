@@ -1,3 +1,17 @@
+# v1.2.0
+
+Fixing bugs with AppVeyor build service.
+
+# v1.1.3
+
+### Bug Fixes
+
+* Fixed bugs with process protocol and several others.
+
+# v1.1.2
+
+Add a lot more fixes.
+
 # v1.1.0
 
 Add a lot more fixes.

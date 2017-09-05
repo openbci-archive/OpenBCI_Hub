@@ -5,7 +5,7 @@ import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
-
+import { ipcMain } from 'electron';
 
 
 /** TCP */
@@ -41,6 +41,7 @@ const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
 const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
 const kTcpCodeErrorChannelSettingsFailedToParse = 425;
 const kTcpCodeErrorCommandNotAbleToBeSent = 406;
+const kTcpCodeErrorCommandNotRecognized = 432;
 const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
 const kTcpCodeErrorImpedanceCouldNotStop = 415;
@@ -91,9 +92,15 @@ const kTcpWifiGetIpAddress = 'getIpAddress';
 const kTcpWifiGetMacAddress = 'getMacAddress';
 const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
 
-let verbose = false;
+ipcMain.on("quit", () => {
+  mb.app.quit();
+})
+
+const debug = false;
+const verbose = false;
 const sendCounts = true;
 
+let syncingChanSettings = false;
 let curTcpProtocol = kTcpProtocolBLE;
 
 let ganglionHubError;
@@ -105,12 +112,13 @@ let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
   verbose: verbose,
-  latency: 10000
+  latency: 10000,
+  debug: true
 });
 let cyton = new Cyton({
   sendCounts,
   verbose: verbose,
-  debug: false
+  debug: true
 });
 
 
@@ -272,17 +280,12 @@ var impedanceFunction = (client, impedanceObj) => {
   client.write(packet);
 };
 
-var closeFunction = (client) => {
+var closeFunction = () => {
   if (verbose) console.log('close event fired');
-  if (ganglionBLE) {
-    ganglionBLE.removeAllListeners('accelerometer');
-    ganglionBLE.removeAllListeners('sample');
-    ganglionBLE.removeAllListeners('message');
-    ganglionBLE.removeAllListeners('impedance');
-  }
-  if (!client.destroyed) {
-    client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
-  }
+};
+
+const unrecognizedCommand = (client, cmd, msg) => {
+  client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotRecognized},${msg}${kTcpStop}`);
 };
 
 const parseMessage = (msg, client) => {
@@ -332,7 +335,7 @@ const parseMessage = (msg, client) => {
       break;
     case kTcpCmdError:
     default:
-      client.write(`${kTcpCmdError},${kTcpCodeBadPacketData},Error: command not recognized${kTcpStop}`);
+      unrecognizedCommand(client, kTcpCmdError, msgElements[0]);
       break;
   }
 };
@@ -384,14 +387,55 @@ const processBoardType = (msg, client) => {
       if (verbose) console.log('board type was already set correct');
       client.write(`${kTcpCmdBoardType},${kTcpCodeSuccess},${boardType}${kTcpStop}`);
     } else {
-      if (verbose) console.log('set board type');
-      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Wifi is currently attached to ${wifi.getBoardType()} which is not the same number of channels or board type as selected`}${kTcpStop}`);
+      if (verbose) console.log('wifi currently connected to set board type');
+      let response = "";
+      if (wifi.getBoardType() === 'none') {
+        response = "WiFi Shield is not connected to any OpenBCI board";
+      } else {
+        response = `Wifi is currently attached to ${wifi.getBoardType()} which is not the same number of channels or board type as selected`;
+      }
+      client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${response}${kTcpStop}`);
 
     }
   } else {
     client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Set protocol first to Serial, cur protocol is ${curTcpProtocol}`}${kTcpStop}`);
   }
 };
+
+const _syncChanSettingsStart = (client) => {
+  if (syncingChanSettings) {
+    client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsSyncInProgress},${kTcpActionStart}${kTcpStop}`);
+  } else {
+    if (verbose) console.log('about to try and start register channel setting sync');
+    syncingChanSettings = true;
+
+    let funcer;
+    if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.syncRegisterSettings.bind(cyton);
+    else funcer = wifi.syncRegisterSettings.bind(wifi);
+
+    try {
+      funcer()
+        .then((channelSettings) => {
+          _.forEach(channelSettings,
+            /**
+             * @param cs {ChannelSettingsObject}
+             */
+            (cs) => {
+              // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+              client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
+            });
+          syncingChanSettings = false;
+        })
+        .catch((err) => {
+          console.log("cyton serial aww err", err);
+          // client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
+          syncingChanSettings = false;
+        });
+    } catch (e) {
+      if (verbose) console.log(e);
+    }
+  }
+}
 
 /**
  * @typedef {Object} ChannelSettingsObject - See page 50 of the ads1299.pdf
@@ -420,41 +464,12 @@ const processBoardType = (msg, client) => {
  *                      channels inverting inputs. `false` when switches open, disconnected, and `true` when switches
  *                      closed, or connected. (Default is `false`)
  */
-
-let syncingChanSettings = false;
 const processChannelSettings = (msg, client) => {
   let msgElements = msg.toString().split(',');
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      if (syncingChanSettings) {
-        client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettingsSyncInProgress},${kTcpActionStart}${kTcpStop}`);
-      } else {
-        if (verbose) console.log('about to try and start register channel setting sync');
-        syncingChanSettings = true;
-
-        let funcer;
-        if (curTcpProtocol === kTcpProtocolSerial) funcer = cyton.syncRegisterSettings.bind(cyton);
-        else funcer = wifi.syncRegisterSettings.bind(wifi);
-
-        funcer()
-          .then((channelSettings) => {
-            _.forEach(channelSettings,
-              /**
-               * @param cs {ChannelSettingsObject}
-               */
-              (cs) => {
-                // console.log(`${kTcpCmdChannelSettings},${kTcpCodeSuccess},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-                client.write(`${kTcpCmdChannelSettings},${kTcpCodeSuccessChannelSetting},${cs.channelNumber},${cs.powerDown},${cs.gain},${cs.inputType},${cs.bias},${cs.srb2},${cs.srb1}${kTcpStop}`);
-              });
-            syncingChanSettings = false;
-          })
-          .catch((err) => {
-            console.log("cyton serial aww err", err);
-            // client.write(`${kTcpCmdChannelSettings},${kTcpCodeErrorChannelSettings},${err.message}${kTcpStop}`);
-            syncingChanSettings = false;
-          });
-      }
+      _syncChanSettingsStart(client);
       break;
     case kTcpActionSet:
       try {
@@ -752,10 +767,10 @@ const _processDisconnectBLE = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectSerial = (client) => {
-  cytonRemoveListeners();
   cyton.disconnect()
     .then(() => {
       if (verbose) console.log("disconnect resolved");
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
     })
     .catch((err) => {
       if (verbose) console.log("failed to disconnect with err: ", err.message);
@@ -768,8 +783,7 @@ const _processDisconnectSerial = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectWifi = (client) => {
-  wifi.removeAllListeners('sample');
-  wifi.removeAllListeners('messages');
+  wifiRemoveListeners();
   wifi.disconnect()
     .then(() => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
@@ -1055,11 +1069,11 @@ const _processProtocolSerial = (msg, client) => {
     case kTcpActionStart:
       _protocolStartSerial()
         .then(() => {
-          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolSerial}${kTcpStop}`);
+          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolSerial},${kTcpActionStart}${kTcpStop}`);
         });
       break;
     case kTcpActionStatus:
-      if (wifi) {
+      if (cyton) {
         client.write(`${kTcpCmdProtocol},${kTcpCodeStatusStarted}${kTcpStop}`);
       } else {
         client.write(`${kTcpCmdProtocol},${kTcpCodeStatusStopped}${kTcpStop}`);
@@ -1067,7 +1081,7 @@ const _processProtocolSerial = (msg, client) => {
       break;
     case kTcpActionStop:
       cytonSerialCleanup();
-      client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess}${kTcpStop}`);
+      client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolSerial},${kTcpActionStop}${kTcpStop}`);
       break;
   }
 };
@@ -1079,7 +1093,7 @@ const _processProtocolWifi = (msg, client) => {
     case kTcpActionStart:
       _protocolStartWifi()
         .then(() => {
-          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolWiFi}${kTcpStop}`);
+          client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolWiFi},${kTcpActionStart}${kTcpStop}`);
         });
       break;
     case kTcpActionStatus:
@@ -1531,6 +1545,17 @@ const processWifi = (msg, client) => {
   }
 };
 
+const ganglionRemoveListeners = () => {
+  if (ganglionBLE) {
+    ganglionBLE.removeAllListeners('accelerometer');
+    ganglionBLE.removeAllListeners('sample');
+    ganglionBLE.removeAllListeners('message');
+    ganglionBLE.removeAllListeners('impedance');
+    ganglionBLE.removeAllListeners('ganglionFound');
+    ganglionBLE.removeAllListeners('close');
+  }
+};
+
 const ganglionBLECleanup = () => {
   if (ganglionBLE) {
     ganglionBLE.manualDisconnect = true;
@@ -1602,7 +1627,9 @@ function exitHandler (options, err) {
 }
 
 let mb = menubar({
-  icon: './resources/icons/icon.png'
+  icon: 'resources/icons/icon.png',
+  width: 300,
+  height: 200
 });
 
 mb.on('ready', function ready () {
