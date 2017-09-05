@@ -30,15 +30,15 @@ test_script:
 
 artifacts:
   - path: dist
-    name: GanglionHub
+    name: OpenBCIHub
 
 deploy:
-  release: Ganglion-${platform}-v$(appveyor_build_version)
+  release: OpenBCIHub-win${platform}-v$(appveyor_build_version)
   description: 'The OpenBCI ganglion hub'
   provider: GitHub
   auth_token:
     secure: ent1No7//XcesOZ99kbi76tUtsoYoVzGCc6szPKbiMKRmtI9PxDWl+UVY9ADVo1N
-  artifact: /GanglionHub.zip/            # upload all NuGet packages to release assets
+  artifact: /OpenBCIHub.zip/            # upload all NuGet packages to release assets
   draft: false
   prerelease: false
   on:
