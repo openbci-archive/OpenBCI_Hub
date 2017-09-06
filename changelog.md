@@ -1,3 +1,9 @@
+# v1.3.1
+
+### Bug Fixes
+
+* Removed annoying pop-up on windows
+
 # v1.3.0
 
 ### Bug Fixes
