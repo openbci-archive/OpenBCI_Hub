@@ -1,3 +1,15 @@
+# v1.3.0
+
+### Bug Fixes
+
+* Issue with ganglion channel data not sent
+* Issue where cyton aux data not sent
+
+### Breaking Changes
+
+* Ganglion data over wifi has only 4 channels (as it's supposed to)
+* Ganglion accel data over wifi sent with packet instead of in separate packet to prevent misalignment.
+
 # v1.2.0
 
 Fixing bugs with AppVeyor build service.
