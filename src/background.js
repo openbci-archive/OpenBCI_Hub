@@ -15,6 +15,7 @@ const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
 const kTcpCmdAccelerometer = 'a';
+const kTcpCmdAuxData = 'g';
 const kTcpCmdBoardType = 'b';
 const kTcpCmdChannelSettings = 'r';
 const kTcpCmdConnect = 'c';
@@ -94,7 +95,7 @@ const kTcpWifiGetTypeOfAttachedBoard = 'getTypeOfAttachedBoard';
 
 ipcMain.on("quit", () => {
   mb.app.quit();
-})
+});
 
 const debug = false;
 const verbose = false;
@@ -113,12 +114,12 @@ let wifi = new Wifi({
   sendCounts,
   verbose: verbose,
   latency: 10000,
-  debug: true
+  debug: debug
 });
 let cyton = new Cyton({
   sendCounts,
   verbose: verbose,
-  debug: true
+  debug: debug
 });
 
 
@@ -230,7 +231,9 @@ var accelerometerFunction = (client, accelDataCounts) => {
  * @param sample.sampleNumber {number}
  * @param sample.channelDataCounts {Array} Array of counts, no gain.
  * @param sample.accelDataCounts {Array} Array of accel counts
+ * @param sample.auxData {Buffer} - Buffer for sample
  * @param sample.valid {Boolean} - If it is valid
+ * @param sample.stopByte {Number} - The stop byte
  *  A sample object.
  */
 var sampleFunction = (client, sample) => {
@@ -244,14 +247,32 @@ var sampleFunction = (client, sample) => {
     packet += ',';
     packet += sample.channelDataCounts[j];
   }
-  packet += `${kTcpStop}`;
-  if (sample.channelDataCounts.length > k.OBCINumberOfChannelsGanglion) {
+  packet += `,${sample.stopByte}`;
+
+  if (sample.stopByte === 0xC0) {
     if (sample.hasOwnProperty('accelDataCounts')) {
-      accelerometerFunction(client, sample.accelDataCounts);
+      for (var j = 0; j < sample.accelDataCounts.length; j++) {
+        packet += `,${sample.accelDataCounts[j]}`;
+      }
+    }
+  } else {
+    if (sample.hasOwnProperty('auxData')) {
+      for (let i =0; i < sample.auxData.byteLength; i++) {
+        packet += `,${sample.auxData[i]}`;
+      }
     }
   }
+  packet += `${kTcpStop}`;
+  // if (sample.channelDataCounts.length > k.OBCINumberOfChannelsGanglion) {
+  //   if (sample.hasOwnProperty('accelDataCounts')) {
+  //     accelerometerFunction(client, sample.accelDataCounts);
+  //   }
+  // } else if (sample.stopByte === 0xC1) {
+  //
+  // }
+  // console.log(JSON.stringify(sample));
   // console.log(packet);
-  client.write(packet);
+  if (!client.destroyed) client.write(packet);
 };
 
 /**
