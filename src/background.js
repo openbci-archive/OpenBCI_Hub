@@ -61,6 +61,7 @@ const kTcpCodeErrorScanNoneFound = 407;
 const kTcpCodeErrorScanNoScanToStop = 410;
 const kTcpCodeErrorScanCouldNotStart = 412;
 const kTcpCodeErrorScanCouldNotStop = 411;
+const kTcpCodeErrorSDNotSupportedForGanglion = 433;
 const kTcpCodeErrorWifiActionNotRecognized = 427;
 const kTcpCodeErrorWifiCouldNotEraseCredentials = 428;
 const kTcpCodeErrorWifiCouldNotSetLatency = 429;
@@ -419,7 +420,7 @@ const processBoardType = (msg, client) => {
 
     }
   } else {
-    client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Set protocol first to Serial, cur protocol is ${curTcpProtocol}`}${kTcpStop}`);
+    client.write(`${kTcpCmdBoardType},${kTcpCodeErrorUnableToSetBoardType},${`Set protocol first to Serial or WiFi, cur protocol is ${curTcpProtocol}`}${kTcpStop}`);
   }
 };
 
@@ -1003,7 +1004,8 @@ const _protocolStartBLE = () => {
     ganglionBLE = new Ganglion({
       nobleScanOnPowerOn: true,
       sendCounts: true,
-      verbose: verbose
+      verbose: verbose,
+      debug: debug
     }, (err) => {
       if (err) {
         // Need to send out error to clients when they connect that there is a bad inner noble
@@ -1477,33 +1479,22 @@ const _processSdWifi = (msg, client) => {
   const action = msgElements[1];
   switch (action) {
     case kTcpActionStart:
-      if (_.isNull(wifi)) {
-        if (verbose) console.log("wifi not started, attempting to start before scan");
-        _protocolStartWifi((err) => {
-          if (err) {
-            client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
-          } else {
-            _processScanWifiStart(client);
-          }
+      wifi.sdStart(msgElements[2])
+        .then(() => {
+          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStart},${err.message}${kTcpStop}`);
         });
-      } else {
-        _processScanWifiStart(client);
-      }
-      break;
-    case kTcpActionStatus:
-      if (wifi.isSearching()) {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
-      } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
-      }
       break;
     case kTcpActionStop:
-      if (wifi.isSearching()) {
-        _scanStopWifi().catch(console.log);
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
-      } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
-      }
+      wifi.sdStop()
+        .then(() => {
+          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        })
+        .catch((err) => {
+          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStop},${err.message}${kTcpStop}`);
+        });
       break;
   }
 };
@@ -1519,8 +1510,10 @@ const processSd = (msg, client) => {
       _processSdWifi(msg, client);
       break;
     case kTcpProtocolSerial:
-    default:
       _processSdSerial(msg, client);
+      break;
+    case kTcpProtocolBLE:
+      client.write(`${kTcpCmdSd},${kTcpCodeErrorSDNotSupportedForGanglion}${kTcpStop}`);
       break;
   }
 };
