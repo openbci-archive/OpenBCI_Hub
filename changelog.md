@@ -1,3 +1,9 @@
+# v1.3.2
+
+### Bug Fixes
+
+* SD card did not work for wifi on cyton
+
 # v1.3.1
 
 ### Bug Fixes
@@ -40,7 +46,7 @@ Fix many issues with cyton and ganglion and wifi.
 
 # v1.0.1
 
-Add channel setting commands. 
+Add channel setting commands.
 
 # v1.0.0
 
@@ -49,7 +55,7 @@ Add cyton and wifi support
 # v0.4.1
 
 ### New Features
-* BLE error on start up now sends error 
+* BLE error on start up now sends error
 
 ### Bug Fixes
 * Fixes #12 - Absorb 'no valid USB' found and send log
@@ -57,7 +63,7 @@ Add cyton and wifi support
 # v0.4.0
 
 ### Breaking Changes
-* Changed name of built app from `Ganglion Hub` to `GanglionHub`. 
+* Changed name of built app from `Ganglion Hub` to `GanglionHub`.
 
 ### Bug Fixes
 * On client leave if ganglion is connected, the connection will close.
@@ -65,15 +71,15 @@ Add cyton and wifi support
 # v0.3.1
 
 ### Enhancements
-* Building the proper builds by tweaking appveryor. 
+* Building the proper builds by tweaking appveryor.
 
 # v0.3.0
 
 ### Enhancements
-* Standardization of Specification. 
+* Standardization of Specification.
 
 ### Breaking changes
-* Accelerometer, Impedance, and Sample data all have specific success error codes: 202, 203, and 204 respectively. Prior to this version all were using the same 200 code. 
+* Accelerometer, Impedance, and Sample data all have specific success error codes: 202, 203, and 204 respectively. Prior to this version all were using the same 200 code.
 
 # v0.2.3
 
