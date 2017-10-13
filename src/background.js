@@ -1,5 +1,5 @@
 import net from 'net';
-import { Ganglion } from 'openbci-ganglion'; // native npm module
+import Ganglion from 'openbci-ganglion'; // native npm module
 import { Wifi } from 'openbci-wifi';
 import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
@@ -99,7 +99,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = false;
+const verbose = true;
 const sendCounts = true;
 
 let syncingChanSettings = false;
@@ -1643,7 +1643,7 @@ function exitHandler (options, err) {
 let mb = menubar({
   icon: 'resources/icons/icon.png',
   width: 300,
-  height: 200
+  height: 400
 });
 
 mb.on('ready', function ready () {
