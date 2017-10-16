@@ -1,3 +1,11 @@
+# v1.3.3
+
+### Bug Fixes
+
+* Update ganglion node driver to 1.0.0
+* Stopped wifi scan in wifi cleanup
+* Cleaned up event listeners for cyton/ganglion/wifi disconnect
+
 # v1.3.2
 
 ### Bug Fixes
