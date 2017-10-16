@@ -5,6 +5,7 @@
 * Update ganglion node driver to 1.0.0
 * Stopped wifi scan in wifi cleanup
 * Cleaned up event listeners for cyton/ganglion/wifi disconnect
+* Fixed bug with daisy not getting accel data or stop byte by bumping wifi version to 0.3.0
 
 # v1.3.2
 

@@ -1,6 +1,6 @@
 import net from 'net';
 import Ganglion from 'openbci-ganglion'; // native npm module
-import { Wifi } from 'openbci-wifi';
+import Wifi from 'openbci-wifi';
 import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
@@ -659,7 +659,7 @@ const _connectWifi = (msg, client) => {
       //TODO: Finish this connect
       if (verbose) console.log("connect success");
       client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
-      wifi.on(k.OBCIEmitterRawDataPacket, console.log);
+      // wifi.on(k.OBCIEmitterRawDataPacket, console.log);
       wifi.on('sample', sampleFunction.bind(null, client));
       wifi.on('message', messageFunction.bind(null, client));
       return Promise.resolve();
