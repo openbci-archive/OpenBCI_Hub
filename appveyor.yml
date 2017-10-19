@@ -32,15 +32,15 @@ artifacts:
   - path: dist
     name: OpenBCIHub
 
-deploy:
-  release: OpenBCIHub-win${platform}-v$(appveyor_build_version)
-  description: 'The OpenBCI ganglion hub'
-  provider: GitHub
-  auth_token:
-    secure: ent1No7//XcesOZ99kbi76tUtsoYoVzGCc6szPKbiMKRmtI9PxDWl+UVY9ADVo1N
-  artifact: /OpenBCIHub.zip/            # upload all NuGet packages to release assets
-  draft: false
-  prerelease: false
-  on:
-    branch: master                 # release from master branch only
-    appveyor_repo_tag: true        # deploy on tag push only
+#deploy:
+#  release: OpenBCIHub-win${platform}-v$(appveyor_build_version)
+#  description: 'The OpenBCI Electron Hub'
+#  provider: GitHub
+#  auth_token:
+#    secure: ent1No7//XcesOZ99kbi76tUtsoYoVzGCc6szPKbiMKRmtI9PxDWl+UVY9ADVo1N
+#  artifact: /OpenBCIHub.zip/            # upload all NuGet packages to release assets
+#  draft: false
+#  prerelease: false
+#  on:
+#    branch: master                 # release from master branch only
+#    appveyor_repo_tag: true        # deploy on tag push only
