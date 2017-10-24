@@ -1,6 +1,6 @@
 import net from 'net';
-import { Ganglion } from 'openbci-ganglion'; // native npm module
-import { Wifi } from 'openbci-wifi';
+import Ganglion from 'openbci-ganglion'; // native npm module
+import Wifi from 'openbci-wifi';
 import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
@@ -659,6 +659,7 @@ const _connectWifi = (msg, client) => {
       //TODO: Finish this connect
       if (verbose) console.log("connect success");
       client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+      // wifi.on(k.OBCIEmitterRawDataPacket, console.log);
       wifi.on('sample', sampleFunction.bind(null, client));
       wifi.on('message', messageFunction.bind(null, client));
       return Promise.resolve();
@@ -763,7 +764,7 @@ const _connectGanglion = (peripheralName, client) => {
   ganglionBLE.connect(peripheralName, true) // Port name is a serial port name, see `.listPorts()`
     .catch((err) => {
       client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
-      ganglionBLE.removeAllListeners('ready');
+      ganglionRemoveListeners();
     });
 };
 
@@ -776,10 +777,12 @@ const _processDisconnectBLE = (client) => {
     ganglionBLE.manualDisconnect = true;
     ganglionBLE.disconnect(true)
       .then(() => {
-        client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
+        client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+        ganglionRemoveListeners();
       })
       .catch((err) => {
         client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
+        ganglionRemoveListeners();
       });
   }
 };
@@ -793,10 +796,12 @@ const _processDisconnectSerial = (client) => {
     .then(() => {
       if (verbose) console.log("disconnect resolved");
       client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+      cytonRemoveListeners();
     })
     .catch((err) => {
       if (verbose) console.log("failed to disconnect with err: ", err.message);
       client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err.message}${kTcpStop}`);
+      cytonRemoveListeners();
     });
 };
 
@@ -805,13 +810,14 @@ const _processDisconnectSerial = (client) => {
  * @param client {Object} - writable TCP client
  */
 const _processDisconnectWifi = (client) => {
-  wifiRemoveListeners();
   wifi.disconnect()
     .then(() => {
-      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`)
+      client.write(`${kTcpCmdDisconnect},${kTcpCodeSuccess}${kTcpStop}`);
+      wifiRemoveListeners();
     })
     .catch((err) => {
       client.write(`${kTcpCmdDisconnect},${kTcpCodeErrorUnableToDisconnect},${err}${kTcpStop}`);
+      wifiRemoveListeners();
     });
 };
 
@@ -1617,6 +1623,9 @@ const wifiRemoveListeners = () => {
 const wifiCleanup = () => {
   if (wifi) {
     wifiRemoveListeners();
+    if (wifi.isSearching()) {
+      _scanStopWifi(null, false).catch(console.log);
+    }
     wifi.disconnect().catch(console.log);
     if (wifi.wifiClient) {
       wifi.wifiClient.stop();
@@ -1643,7 +1652,7 @@ function exitHandler (options, err) {
 let mb = menubar({
   icon: 'resources/icons/icon.png',
   width: 300,
-  height: 200
+  height: 400
 });
 
 mb.on('ready', function ready () {
