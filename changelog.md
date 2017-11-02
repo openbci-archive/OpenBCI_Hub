@@ -12,6 +12,7 @@
 * Stopped wifi scan in wifi cleanup
 * Cleaned up event listeners for cyton/ganglion/wifi disconnect
 * Fixed bug with daisy not getting accel data or stop byte by bumping wifi version to 0.3.0
+* Daisy with cyton now get's stop bytes with bump to 1.0.6
 
 # v1.3.2
 
