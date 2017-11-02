@@ -99,7 +99,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = true;
+const verbose = false;
 const sendCounts = true;
 
 let syncingChanSettings = false;
