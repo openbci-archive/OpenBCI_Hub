@@ -113,6 +113,7 @@ let ganglionHubError;
 let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
+  protocol: 'udp',
   verbose: verbose,
   latency: 10000,
   debug: debug
@@ -1043,8 +1044,10 @@ const _protocolStartWifi = () => {
   protocolSafeStart();
   if (_.isNull(wifi)) {
     wifi = new Wifi({
+      protocol: 'udp',
       sendCounts: true,
-      verbose: verbose
+      verbose: verbose,
+      debug: debug
     });
   }
 
