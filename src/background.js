@@ -234,6 +234,7 @@ var accelerometerFunction = (client, accelDataCounts) => {
  * @param sample.channelDataCounts {Array} Array of counts, no gain.
  * @param sample.accelDataCounts {Array} Array of accel counts
  * @param sample.auxData {Buffer} - Buffer for sample
+ * @param sample.auxData.lower {Buffer} - Buffer for daisy
  * @param sample.valid {Boolean} - If it is valid
  * @param sample.stopByte {Number} - The stop byte
  *  A sample object.
@@ -245,33 +246,39 @@ var sampleFunction = (client, sample) => {
     return;
   }
   packet += sample.sampleNumber;
-  for (var j = 0; j < sample.channelDataCounts.length; j++) {
-    packet += ',';
-    packet += sample.channelDataCounts[j];
+  if (sample.hasOwnProperty('channelDataCounts')) {
+    for (var j = 0; j < sample.channelDataCounts.length; j++) {
+      packet += ',';
+      packet += sample.channelDataCounts[j];
+    }
   }
-  packet += `,${sample.stopByte}`;
 
-  if (sample.stopByte === 0xC0) {
-    if (sample.hasOwnProperty('accelDataCounts')) {
-      for (var j = 0; j < sample.accelDataCounts.length; j++) {
-        packet += `,${sample.accelDataCounts[j]}`;
+  if (sample.hasOwnProperty('stopByte')) {
+    packet += `,${sample.stopByte}`;
+
+    if (sample.stopByte === 0xC0) {
+      if (sample.hasOwnProperty('accelDataCounts')) {
+        for (var j = 0; j < sample.accelDataCounts.length; j++) {
+          packet += `,${sample.accelDataCounts[j]}`;
+        }
       }
-    }
-  } else {
-    if (sample.hasOwnProperty('auxData')) {
-      for (let i =0; i < sample.auxData.byteLength; i++) {
-        packet += `,${sample.auxData[i]}`;
+    } else {
+      if (sample.hasOwnProperty('channelDataCounts') && sample.hasOwnProperty('auxData')) {
+        if (sample.channelDataCounts.length === k.OBCINumberOfChannelsDaisy) {
+          for (let i =0; i < sample.auxData.lower.byteLength; i++) {
+            packet += `,${sample.auxData.lower[i]}`;
+          }
+        } else {
+          for (let i =0; i < sample.auxData.byteLength; i++) {
+            packet += `,${sample.auxData[i]}`;
+          }
+        }
       }
     }
   }
+
+
   packet += `${kTcpStop}`;
-  // if (sample.channelDataCounts.length > k.OBCINumberOfChannelsGanglion) {
-  //   if (sample.hasOwnProperty('accelDataCounts')) {
-  //     accelerometerFunction(client, sample.accelDataCounts);
-  //   }
-  // } else if (sample.stopByte === 0xC1) {
-  //
-  // }
   // console.log(JSON.stringify(sample));
   // console.log(packet);
   if (!client.destroyed) client.write(packet);

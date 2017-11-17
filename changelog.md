@@ -1,4 +1,10 @@
-# v1.3.4
+# v1.3.5
+
+### Bug Fixes
+
+* Daisy data did not send aux values
+
+# v1.3.3/4
 
 ### Bug Fixes
 
