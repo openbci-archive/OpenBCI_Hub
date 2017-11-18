@@ -116,7 +116,8 @@ let wifi = new Wifi({
   protocol: 'udp',
   verbose: verbose,
   latency: 10000,
-  debug: debug
+  debug: debug,
+  burst: true
 });
 let cyton = new Cyton({
   sendCounts,
@@ -1054,7 +1055,8 @@ const _protocolStartWifi = () => {
       protocol: 'udp',
       sendCounts: true,
       verbose: verbose,
-      debug: debug
+      debug: debug,
+      burst: true
     });
   }
 
