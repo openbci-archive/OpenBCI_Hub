@@ -6,7 +6,7 @@ import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
 import { ipcMain } from 'electron';
-
+import path from 'path';
 
 /** TCP */
 const k = Constants;
@@ -113,7 +113,7 @@ let ganglionHubError;
 let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
-  protocol: 'udp',
+  protocol: 'tcp',
   verbose: verbose,
   latency: 10000,
   debug: debug,
@@ -1052,7 +1052,7 @@ const _protocolStartWifi = () => {
   protocolSafeStart();
   if (_.isNull(wifi)) {
     wifi = new Wifi({
-      protocol: 'udp',
+      protocol: 'tcp',
       sendCounts: true,
       verbose: verbose,
       debug: debug,
@@ -1662,13 +1662,14 @@ function exitHandler (options, err) {
 }
 
 let mb = menubar({
-  icon: 'resources/icons/icon.png',
+  icon: path.join(__dirname, 'resources', 'icons', 'icon.png'),
   width: 300,
   height: 400
 });
 
 mb.on('ready', function ready () {
   console.log('app is ready');
+  // mb.tray.setImage()
   // your app code here
 });
 
