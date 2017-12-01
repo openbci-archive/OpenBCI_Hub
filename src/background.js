@@ -81,6 +81,9 @@ const kTcpCodeStatusNotScanning = 303;
 const kTcpCodeStatusStarted = 304;
 const kTcpCodeStatusStopped = 305;
 const kTcpCodeTimeoutScanStopped = 432;
+const kTcpInternetProtocolTCP = 'tcp';
+const kTcpInternetProtocolUDP = 'udp';
+const kTcpInternetProtocolUDPBurst = 'udpBurst';
 const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpProtocolBLE = 'ble';
@@ -99,7 +102,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = false;
+const verbose = true;
 const sendCounts = true;
 
 let syncingChanSettings = false;
@@ -117,7 +120,7 @@ let wifi = new Wifi({
   verbose: verbose,
   latency: 10000,
   debug: debug,
-  burst: true
+  burst: false
 });
 let cyton = new Cyton({
   sendCounts,
@@ -658,11 +661,22 @@ const _connectWifi = (msg, client) => {
   let msgElements = msg.toString().split(',');
 
   if (verbose) console.log(`Connecting to WiFi Shield called ${msgElements[1]}`);
-
+  let burst = false;
+  let internetProtocol = kTcpInternetProtocolTCP;
+  if (msgElements.length > 4) {
+    if (msgElements[4] === kTcpInternetProtocolUDP) {
+      internetProtocol = kTcpInternetProtocolUDP;
+    } else if (msgElements[4] === kTcpInternetProtocolUDPBurst) {
+      internetProtocol = kTcpInternetProtocolUDPBurst;
+      burst = true;
+    }
+  }
   wifi.connect({
       latency: parseInt(msgElements[3]),
       shieldName: msgElements[1],
-      sampleRate: parseInt(msgElements[2])
+      sampleRate: parseInt(msgElements[2]),
+      protocol: internetProtocol,
+      burst: burst
     })
     .then(() => {
       //TODO: Finish this connect
@@ -1052,11 +1066,9 @@ const _protocolStartWifi = () => {
   protocolSafeStart();
   if (_.isNull(wifi)) {
     wifi = new Wifi({
-      protocol: 'tcp',
       sendCounts: true,
       verbose: verbose,
-      debug: debug,
-      burst: true
+      debug: debug
     });
   }
 

@@ -1,3 +1,9 @@
+# v1.3.6
+
+### Bug Fixes
+
+* Application in production was not finding custom OpenBCI logo.
+
 # v1.3.5
 
 ### Bug Fixes
