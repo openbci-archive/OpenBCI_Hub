@@ -42,7 +42,7 @@ const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
 const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
 const kTcpCodeErrorChannelSettingsFailedToParse = 425;
 const kTcpCodeErrorCommandNotAbleToBeSent = 406;
-const kTcpCodeErrorCommandNotRecognized = 432;
+const kTcpCodeErrorCommandNotRecognized = 434;
 const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
 const kTcpCodeErrorImpedanceCouldNotStop = 415;
@@ -548,7 +548,7 @@ const _processCommandBLE = (msg, client) => {
         })
         .catch((err) => {
           if (verbose) console.log('unable to write command', err);
-          client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+          client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
         });
     } else {
       client.write(`${kTcpCmdCommand},${kTcpCodeErrorNoOpenBleDevice}${kTcpStop}`);
@@ -570,7 +570,7 @@ const _processCommandSerial = (msg, client) => {
     })
     .catch((err) => {
       if (verbose) console.log('serial unable to write command', err);
-      client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+      client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
 
@@ -586,7 +586,7 @@ const _processCommandWifi = (msg, client) => {
     })
     .catch((err) => {
       if (verbose) console.log('wifi unable to write command', err);
-      client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+      client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
 
