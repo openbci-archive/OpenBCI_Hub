@@ -65,6 +65,7 @@ const kTcpCodeErrorSDNotSupportedForGanglion = 433;
 const kTcpCodeErrorWifiActionNotRecognized = 427;
 const kTcpCodeErrorWifiCouldNotEraseCredentials = 428;
 const kTcpCodeErrorWifiCouldNotSetLatency = 429;
+const kTcpCodeErrorWifiNeedsUpdate = 435;
 const kTcpCodeErrorWifiNotConnected = 426;
 const kTcpCodeSuccess = 200;
 const kTcpCodeSuccessGanglionFound = 201;
@@ -689,8 +690,12 @@ const _connectWifi = (msg, client) => {
     })
     .catch((err) => {
       wifiRemoveListeners();
-      console.log(err);
-      client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+      if (verbose) console.log('connect wifi error:', err.message);
+      if (err.message === 'ERROR: CODE: 404 MESSAGE: Route Not Found\r\n') {
+        client.write(`${kTcpCmdConnect},${kTcpCodeErrorWifiNeedsUpdate},${err}${kTcpStop}`);
+      } else {
+        client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+      }
     })
 };
 

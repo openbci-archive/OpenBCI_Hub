@@ -1,3 +1,9 @@
+# v1.3.7
+
+### Bug Fixes
+
+* WiFi would send success message on 404 errors. Now sends error code 435, or, update your wifi shield firmware to support this feature.
+
 # v1.3.6
 
 ### Bug Fixes
