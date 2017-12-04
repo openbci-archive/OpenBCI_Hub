@@ -1,3 +1,10 @@
+# v1.3.6
+
+### Bug Fixes
+
+* Application in production was not finding custom OpenBCI logo.
+* Process command error would send message type error to GUI for all boards. Changes to send command type with error code.
+
 # v1.3.5
 
 ### Bug Fixes
