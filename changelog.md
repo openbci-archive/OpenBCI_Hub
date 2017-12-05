@@ -1,3 +1,22 @@
+# v1.3.8
+
+### Bug Fixes
+
+* Found out that `openbci-ganglion` had it's own version of noble it was using that was not the macos high seirra updated one, so i copy and pasted the correct build into both app/node_moduloes/noble AND app/node_modules/openbci-ganglion/node_modules/noble. More on this issue can be found at [openbci/openbci_gui/issue/270](https://github.com/OpenBCI/OpenBCI_GUI/issues/270)
+
+# v1.3.7
+
+### Bug Fixes
+
+* WiFi would send success message on 404 errors. Now sends error code 435, or, update your wifi shield firmware to support this feature.
+
+# v1.3.6
+
+### Bug Fixes
+
+* Application in production was not finding custom OpenBCI logo.
+* Process command error would send message type error to GUI for all boards. Changes to send command type with error code.
+
 # v1.3.5
 
 ### Bug Fixes

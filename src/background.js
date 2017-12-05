@@ -6,7 +6,7 @@ import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
 import { ipcMain } from 'electron';
-
+import path from 'path';
 
 /** TCP */
 const k = Constants;
@@ -42,7 +42,7 @@ const kTcpCodeErrorChannelSettingsSyncInProgress = 422;
 const kTcpCodeErrorChannelSettingsFailedToSetChannel = 424;
 const kTcpCodeErrorChannelSettingsFailedToParse = 425;
 const kTcpCodeErrorCommandNotAbleToBeSent = 406;
-const kTcpCodeErrorCommandNotRecognized = 432;
+const kTcpCodeErrorCommandNotRecognized = 434;
 const kTcpCodeErrorDeviceNotFound = 405;
 const kTcpCodeErrorImpedanceCouldNotStart = 414;
 const kTcpCodeErrorImpedanceCouldNotStop = 415;
@@ -65,6 +65,7 @@ const kTcpCodeErrorSDNotSupportedForGanglion = 433;
 const kTcpCodeErrorWifiActionNotRecognized = 427;
 const kTcpCodeErrorWifiCouldNotEraseCredentials = 428;
 const kTcpCodeErrorWifiCouldNotSetLatency = 429;
+const kTcpCodeErrorWifiNeedsUpdate = 435;
 const kTcpCodeErrorWifiNotConnected = 426;
 const kTcpCodeSuccess = 200;
 const kTcpCodeSuccessGanglionFound = 201;
@@ -81,6 +82,9 @@ const kTcpCodeStatusNotScanning = 303;
 const kTcpCodeStatusStarted = 304;
 const kTcpCodeStatusStopped = 305;
 const kTcpCodeTimeoutScanStopped = 432;
+const kTcpInternetProtocolTCP = 'tcp';
+const kTcpInternetProtocolUDP = 'udp';
+const kTcpInternetProtocolUDPBurst = 'udpBurst';
 const kTcpHost = '127.0.0.1';
 const kTcpPort = 10996;
 const kTcpProtocolBLE = 'ble';
@@ -113,9 +117,11 @@ let ganglionHubError;
 let ganglionBLE = null;
 let wifi = new Wifi({
   sendCounts,
+  protocol: 'tcp',
   verbose: verbose,
   latency: 10000,
-  debug: debug
+  debug: debug,
+  burst: false
 });
 let cyton = new Cyton({
   sendCounts,
@@ -543,7 +549,7 @@ const _processCommandBLE = (msg, client) => {
         })
         .catch((err) => {
           if (verbose) console.log('unable to write command', err);
-          client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+          client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
         });
     } else {
       client.write(`${kTcpCmdCommand},${kTcpCodeErrorNoOpenBleDevice}${kTcpStop}`);
@@ -565,7 +571,7 @@ const _processCommandSerial = (msg, client) => {
     })
     .catch((err) => {
       if (verbose) console.log('serial unable to write command', err);
-      client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+      client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
 
@@ -581,7 +587,7 @@ const _processCommandWifi = (msg, client) => {
     })
     .catch((err) => {
       if (verbose) console.log('wifi unable to write command', err);
-      client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
+      client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
 
@@ -656,11 +662,22 @@ const _connectWifi = (msg, client) => {
   let msgElements = msg.toString().split(',');
 
   if (verbose) console.log(`Connecting to WiFi Shield called ${msgElements[1]}`);
-
+  let burst = false;
+  let internetProtocol = kTcpInternetProtocolTCP;
+  if (msgElements.length > 4) {
+    if (msgElements[4] === kTcpInternetProtocolUDP) {
+      internetProtocol = kTcpInternetProtocolUDP;
+    } else if (msgElements[4] === kTcpInternetProtocolUDPBurst) {
+      internetProtocol = kTcpInternetProtocolUDPBurst;
+      burst = true;
+    }
+  }
   wifi.connect({
       latency: parseInt(msgElements[3]),
       shieldName: msgElements[1],
-      sampleRate: parseInt(msgElements[2])
+      sampleRate: parseInt(msgElements[2]),
+      protocol: internetProtocol,
+      burst: burst
     })
     .then(() => {
       //TODO: Finish this connect
@@ -673,8 +690,12 @@ const _connectWifi = (msg, client) => {
     })
     .catch((err) => {
       wifiRemoveListeners();
-      console.log(err);
-      client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+      if (verbose) console.log('connect wifi error:', err.message);
+      if (err.message === 'ERROR: CODE: 404 MESSAGE: Route Not Found\r\n') {
+        client.write(`${kTcpCmdConnect},${kTcpCodeErrorWifiNeedsUpdate},${err}${kTcpStop}`);
+      } else {
+        client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
+      }
     })
 };
 
@@ -1014,6 +1035,10 @@ const protocolSafeStart = () => {
 const _protocolStartBLE = () => {
   return new Promise((resolve, reject) => {
     protocolSafeStart();
+    const blePoweredUp = () => {
+      if (verbose) console.log('Success with powering on bluetooth');
+      resolve();
+    };
     ganglionBLE = new Ganglion({
       nobleScanOnPowerOn: true,
       sendCounts: true,
@@ -1021,13 +1046,16 @@ const _protocolStartBLE = () => {
       debug: debug
     }, (err) => {
       if (err) {
+        if (verbose) console.log(`Error starting ganglion ble: ${err.message}`);
         // Need to send out error to clients when they connect that there is a bad inner noble
         ganglionHubError = err;
         reject(err);
+        if (ganglionBLE) ganglionBLE.removeAllListeners(k.OBCIEmitterBlePoweredUp);
       } else {
-        resolve();
+        if (verbose) console.log('Success starting ganglion ble, waiting for BLE power up');
       }
     });
+    ganglionBLE.once(k.OBCIEmitterBlePoweredUp, blePoweredUp);
     curTcpProtocol = kTcpProtocolBLE;
   })
 };
@@ -1051,7 +1079,8 @@ const _protocolStartWifi = () => {
   if (_.isNull(wifi)) {
     wifi = new Wifi({
       sendCounts: true,
-      verbose: verbose
+      verbose: verbose,
+      debug: debug
     });
   }
 
@@ -1657,13 +1686,14 @@ function exitHandler (options, err) {
 }
 
 let mb = menubar({
-  icon: 'resources/icons/icon.png',
+  icon: path.join(__dirname, 'resources', 'icons', 'icon.png'),
   width: 300,
   height: 400
 });
 
 mb.on('ready', function ready () {
   console.log('app is ready');
+  // mb.tray.setImage()
   // your app code here
 });
 
