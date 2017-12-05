@@ -1035,6 +1035,10 @@ const protocolSafeStart = () => {
 const _protocolStartBLE = () => {
   return new Promise((resolve, reject) => {
     protocolSafeStart();
+    const blePoweredUp = () => {
+      if (verbose) console.log('Success with powering on bluetooth');
+      resolve();
+    };
     ganglionBLE = new Ganglion({
       nobleScanOnPowerOn: true,
       sendCounts: true,
@@ -1042,13 +1046,16 @@ const _protocolStartBLE = () => {
       debug: debug
     }, (err) => {
       if (err) {
+        if (verbose) console.log(`Error starting ganglion ble: ${err.message}`);
         // Need to send out error to clients when they connect that there is a bad inner noble
         ganglionHubError = err;
         reject(err);
+        if (ganglionBLE) ganglionBLE.removeAllListeners(k.OBCIEmitterBlePoweredUp);
       } else {
-        resolve();
+        if (verbose) console.log('Success starting ganglion ble, waiting for BLE power up');
       }
     });
+    ganglionBLE.once(k.OBCIEmitterBlePoweredUp, blePoweredUp);
     curTcpProtocol = kTcpProtocolBLE;
   })
 };
