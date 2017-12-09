@@ -668,7 +668,7 @@ const _connectWifi = (msg, client) => {
     if (msgElements[4] === kTcpInternetProtocolUDP) {
       internetProtocol = kTcpInternetProtocolUDP;
     } else if (msgElements[4] === kTcpInternetProtocolUDPBurst) {
-      internetProtocol = kTcpInternetProtocolUDPBurst;
+      internetProtocol = kTcpInternetProtocolUDP;
       burst = true;
     }
   }

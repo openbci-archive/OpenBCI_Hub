@@ -1,3 +1,9 @@
+# v1.3.9
+
+### Bug Fixes
+
+* UDP Burst did not work because was sending to `/udpBurst` instead of `/udp`
+
 # v1.3.8
 
 ### Bug Fixes
