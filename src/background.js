@@ -130,6 +130,14 @@ let cyton = new Cyton({
 });
 
 
+
+process.on('uncaughtException',function(err){
+  console.log('Err: ', err.message);
+  if (mb) {
+    mb.app.quit();
+  }
+});
+
 // Start a TCP Server
 net.createServer((client) => {
   // Identify this client
