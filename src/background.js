@@ -5,7 +5,7 @@ import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
-import { ipcMain } from 'electron';
+import { ipcMain, dialog } from 'electron';
 import path from 'path';
 
 /** TCP */
@@ -132,8 +132,10 @@ let cyton = new Cyton({
 
 
 process.on('uncaughtException',function(err){
-  console.log('Err: ', err.message);
+  if (verbose) console.log('Err: ', err.message);
+  dialog.showErrorBox("OpenBCIHub Fatal Error", err.message);
   if (mb) {
+    if (verbose) console.log('Closing the app');
     mb.app.quit();
   }
 });
