@@ -1,3 +1,10 @@
+# v1.3.9
+
+### Bug Fixes
+
+* UDP Burst did not work because was sending to `/udpBurst` instead of `/udp`
+* App would not close on uncaught exceptions, now, an error box is shown with the error, then when the user hit's ok, the whole app quits.
+
 # v1.3.8
 
 ### Bug Fixes

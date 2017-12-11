@@ -5,7 +5,7 @@ import { Constants } from 'openbci-utilities';
 import Cyton from 'openbci-cyton';
 import menubar from 'menubar';
 import * as _ from 'lodash';
-import { ipcMain } from 'electron';
+import { ipcMain, dialog } from 'electron';
 import path from 'path';
 
 /** TCP */
@@ -129,6 +129,16 @@ let cyton = new Cyton({
   debug: debug
 });
 
+
+
+process.on('uncaughtException',function(err){
+  if (verbose) console.log('Err: ', err.message);
+  dialog.showErrorBox("OpenBCIHub Fatal Error", err.message);
+  if (mb) {
+    if (verbose) console.log('Closing the app');
+    mb.app.quit();
+  }
+});
 
 // Start a TCP Server
 net.createServer((client) => {
@@ -668,7 +678,7 @@ const _connectWifi = (msg, client) => {
     if (msgElements[4] === kTcpInternetProtocolUDP) {
       internetProtocol = kTcpInternetProtocolUDP;
     } else if (msgElements[4] === kTcpInternetProtocolUDPBurst) {
-      internetProtocol = kTcpInternetProtocolUDPBurst;
+      internetProtocol = kTcpInternetProtocolUDP;
       burst = true;
     }
   }
