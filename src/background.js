@@ -645,7 +645,7 @@ const _processConnectSerial = (msg, client) => {
   let msgElements = msg.toString().split(',');
   const onReadyFunc = () => {
     if (verbose) console.log("ready");
-    client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
+    client.write(`${kTcpCmdConnect},${kTcpCodeSuccess},${cyton.getInfo().firmware}${kTcpStop}`);
     // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
     cyton.on(k.OBCIEmitterSample, sampleFunction.bind(null, client));
     cyton.on(k.OBCIEmitterEot, messageFunction.bind(null, client));
