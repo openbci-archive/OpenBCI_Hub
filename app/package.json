@@ -14,8 +14,8 @@
     "lodash": "^4.16.6",
     "menubar": "^5.1.0",
     "node-ssdp": "^3.2.1",
-    "openbci-cyton": "^1.0.7",
-    "openbci-ganglion": "^1.1.0",
+    "openbci-cyton": "^1.0.8",
+    "openbci-ganglion": "^1.1.3",
     "openbci-utilities": "^0.2.7",
     "openbci-wifi": "^0.4.1"
   }
