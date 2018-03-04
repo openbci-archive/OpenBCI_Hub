@@ -1,3 +1,14 @@
+# v1.4.0
+
+### New Features
+
+* Add BLED112 support via OpenBCI Ganglion 1.1.5
+
+### Chores
+
+* Bumped cyton to 1.0.8 for new serialport 
+* Bumped electron to 1.8.2
+
 # v1.3.9
 
 ### Bug Fixes
