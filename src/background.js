@@ -116,7 +116,9 @@ let ganglionHubError;
  * The pointer to ganglion ble code
  * @type {Ganglion}
  */
-let ganglionBLE = null;
+let ganglionBLE = new Ganglion({
+  driverAutoInit: false
+});
 let wifi = new Wifi({
   sendCounts,
   protocol: 'tcp',
@@ -1083,7 +1085,11 @@ const protocolSafeStart = () => {
 
 const _protocolStartBLE = (protocol) => {
   return new Promise((resolve, reject) => {
+    protocolSafeStart();
     if (protocol === kTcpProtocolBLED112) {
+      /**
+       * @type {Ganglion}
+       */
       ganglionBLE = new Ganglion({
         sendCounts: true,
         verbose: verbose,
@@ -1103,7 +1109,6 @@ const _protocolStartBLE = (protocol) => {
       });
       curTcpProtocol = kTcpProtocolBLED112;
     } else {
-      protocolSafeStart();
 
       const blePoweredUp = () => {
         if (verbose) console.log('Success with powering on bluetooth');
@@ -1170,6 +1175,7 @@ const _processProtocolBLE = (msg, client) => {
         .then(() => {
           const ganglionFound = (peripheral) => {
             let localName = '';
+            console.log("Current internet protocol is", protocol);
             if (protocol === kTcpProtocolBLED112) {
               localName = peripheral.advertisementDataString;
             } else {
@@ -1703,6 +1709,7 @@ const ganglionBLECleanup = () => {
     ganglionBLE.removeAllListeners('ganglionFound');
     ganglionBLE.removeAllListeners('close');
     ganglionBLE.destroyNoble();
+    ganglionBLE.destroyBLED112();
     ganglionBLE = null;
   }
 };
