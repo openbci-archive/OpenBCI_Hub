@@ -104,8 +104,8 @@ ipcMain.on("quit", () => {
   mb.app.quit();
 });
 
-const debug = true;
-const verbose = true;
+const debug = false;
+const verbose = false;
 const sendCounts = true;
 
 let syncingChanSettings = false;
