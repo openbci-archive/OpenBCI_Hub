@@ -296,8 +296,8 @@ var sampleFunction = (client, sample) => {
 
 
   packet += `${kTcpStop}`;
-  console.log(JSON.stringify(sample));
-  console.log(packet);
+  // console.log(JSON.stringify(sample));
+  // console.log(packet);
   if (!client.destroyed) client.write(packet);
 };
 
@@ -672,24 +672,20 @@ const _processConnectBLE = (msg, client) => {
 
 const _processConnectSerial = (msg, client) => {
   let msgElements = msg.toString().split(',');
-  const onReadyFunc = () => {
-    if (verbose) console.log("ready");
-    client.write(`${kTcpCmdConnect},${kTcpCodeSuccess},${cyton.getInfo().firmware}${kTcpStop}`);
-    // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
-    cyton.on(k.OBCIEmitterSample, sampleFunction.bind(null, client));
-    cyton.on(k.OBCIEmitterEot, messageFunction.bind(null, client));
-    cyton.once(k.OBCIEmitterClose, closeFunction.bind(null, client));
-  };
   if (cyton.isConnected()) {
     if (verbose) console.log('already connected');
     client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
     if (verbose) console.log("going to try and connect");
     let addr = msgElements[1];
-    cyton.once(k.OBCIEmitterReady, onReadyFunc.bind(null, client));
     cyton.connect(addr)
       .then(() => {
         if (verbose) console.log("connect success");
+        client.write(`${kTcpCmdConnect},${kTcpCodeSuccess},${cyton.getInfo().firmware.raw}${kTcpStop}`);
+        // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
+        cyton.on(k.OBCIEmitterSample, sampleFunction.bind(null, client));
+        cyton.on(k.OBCIEmitterEot, messageFunction.bind(null, client));
+        cyton.once(k.OBCIEmitterClose, closeFunction.bind(null, client));
       })
       .catch((err) => {
         client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
