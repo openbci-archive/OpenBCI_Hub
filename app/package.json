@@ -4,7 +4,7 @@
   "description": "OpenBCIHub",
   "version": "1.4.0",
   "author": "AJ Keller <hello@pushtheworld.us>",
-  "copyright": "© 2017, OpenBCI inc.",
+  "copyright": "© 2018, OpenBCI inc.",
   "homepage": "http://openbci.com",
   "license": "MIT",
   "main": "background.js",
@@ -14,7 +14,7 @@
     "lodash": "^4.16.6",
     "menubar": "^5.1.0",
     "node-ssdp": "^3.2.1",
-    "openbci-cyton": "^1.0.8",
+    "openbci-cyton": "^1.1.2",
     "openbci-ganglion": "^1.1.5",
     "openbci-utilities": "^0.2.7",
     "openbci-wifi": "^0.4.1"

@@ -6,7 +6,7 @@
 
 ### Chores
 
-* Bumped cyton to 1.0.8 for new serialport 
+* Bumped cyton to 1.1.1 for new serialport 
 * Bumped electron to 1.8.2
 
 # v1.3.9
