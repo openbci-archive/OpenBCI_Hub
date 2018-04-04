@@ -44,5 +44,5 @@ app/index.js
 dist/
 /app/env.json
 .DS_Store
-
+app/env.json
 app/resources
