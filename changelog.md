@@ -1,3 +1,9 @@
+# v1.4.1
+
+### Bug Fixes
+
+* Ganglion with BLED112 was not working to discover devices, bumped to v1.1.7
+
 # v1.4.0
 
 ### New Features
