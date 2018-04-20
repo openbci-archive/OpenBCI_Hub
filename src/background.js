@@ -7,6 +7,7 @@ import menubar from 'menubar';
 import * as _ from 'lodash';
 import { ipcMain, dialog } from 'electron';
 import path from 'path';
+import ip from 'ip';
 
 /** TCP */
 const k = Constants;
@@ -105,7 +106,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = false;
+const verbose = true;
 const sendCounts = true;
 
 let syncingChanSettings = false;
@@ -707,13 +708,19 @@ const _connectWifi = (msg, client) => {
       burst = true;
     }
   }
-  wifi.connect({
-      latency: parseInt(msgElements[3]),
-      shieldName: msgElements[1],
-      sampleRate: parseInt(msgElements[2]),
-      protocol: internetProtocol,
-      burst: burst
-    })
+  if (verbose) console.log(`Examining to WiFi Shield called ${msgElements[1]}`);
+  let options = {
+    latency: parseInt(msgElements[3]),
+    sampleRate: parseInt(msgElements[2]),
+    protocol: internetProtocol,
+    burst: burst
+  };
+  if (ip.isV4Format(msgElements[1])) {
+    options['ipAddress']= msgElements[1];
+  } else {
+    options['shieldName']= msgElements[1];
+  }
+  wifi.connect(options)
     .then(() => {
       //TODO: Finish this connect
       if (verbose) console.log("connect success");
@@ -919,11 +926,19 @@ const _examineWifi = (msg, client) => {
   let msgElements = msg.toString().split(',');
 
   if (verbose) console.log(`Examining to WiFi Shield called ${msgElements[1]}`);
-
-  wifi.connect({
-    examineMode: true,
-    shieldName: msgElements[1]
-  })
+  let options = {};
+  if (ip.isV4Format(msgElements[1])) {
+    options = {
+      examineMode: true,
+      ipAddress: msgElements[1]
+    }
+  } else {
+    options = {
+      examineMode: true,
+      shieldName: msgElements[1]
+    }
+  }
+  wifi.connect(options)
     .then(() => {
       //TODO: Finish this connect
       if (verbose) console.log("connect for examine success");
