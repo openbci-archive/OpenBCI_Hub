@@ -1,3 +1,9 @@
+# v1.4.3
+
+### New Features
+
+* Bumped Electron to 2.0.2
+
 # v1.4.2
 
 ### New Features
