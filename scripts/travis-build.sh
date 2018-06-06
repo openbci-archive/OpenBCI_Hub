@@ -15,4 +15,8 @@ node --version
 npm --version
 
 npm install
+npm start & HUBPID=$!
+sleep 5
+npm run quicktest &&
+kill $HUBPID &&
 npm run release

@@ -1,3 +1,9 @@
+# v1.4.2
+
+### New Features
+
+* Working with static ip
+
 # v1.4.1
 
 ### Bug Fixes
