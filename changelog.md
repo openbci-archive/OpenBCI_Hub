@@ -1,3 +1,9 @@
+# v1.4.4
+
+### New Features
+
+* Bumped openbci-ganglion to 1.1.9 for accel patches
+
 # v1.4.3
 
 ### New Features
