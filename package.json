@@ -58,6 +58,5 @@
     "yargs": "^4.2.0"
   },
   "dependencies": {
-    "openbci-ganglion": "^1.1.10"
   }
 }
