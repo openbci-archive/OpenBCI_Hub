@@ -637,7 +637,7 @@ const _processConnectBLE = (msg, client) => {
           // });
           ganglionBLE.searchStop()
             .then(() => {
-              console.log("Date: ", Date.now());
+              // console.log("Date: ", Date.now());
               _connectGanglion(msgElements[1], client);
               return Promise.resolve();
               // return ganglionBLE.connect(msgElements[1]);
