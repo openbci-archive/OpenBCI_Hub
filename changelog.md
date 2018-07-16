@@ -2,7 +2,7 @@
 
 ### New Features
 
-* Bumped openbci-ganglion to 1.1.10 for BLED112 support for windows
+* Bumped openbci-ganglion to 1.1.11 for BLED112 support for windows
 
 # v1.4.4
 
