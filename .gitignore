@@ -46,3 +46,4 @@ dist/
 .DS_Store
 app/env.json
 app/resources
+package-lock.json
