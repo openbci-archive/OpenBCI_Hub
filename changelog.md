@@ -1,3 +1,9 @@
+# v1.4.6
+
+### New Features
+
+* Bumped openbci-ganglion to 1.1.12 for BLED112 support for linux
+
 # v1.4.5
 
 ### New Features

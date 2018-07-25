@@ -106,7 +106,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = false;
+const verbose = true;
 const sendCounts = true;
 
 let syncingChanSettings = false;
@@ -643,7 +643,7 @@ const _processConnectBLE = (msg, client) => {
               // return ganglionBLE.connect(msgElements[1]);
             })
             .catch((err) => {
-              console.log(err);
+              if (verbose) console.log(err);
               client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
               ganglionBLE.removeAllListeners('ready');
             });
@@ -1126,7 +1126,7 @@ const _protocolStartBLE = (protocol) => {
         resolve();
       };
       ganglionBLE = new Ganglion({
-        nobleScanOnPowerOn: false,
+        nobleScanOnPowerOn: true,
         sendCounts: true,
         verbose: verbose,
         debug: debug,
