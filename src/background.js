@@ -95,6 +95,24 @@ const kTcpProtocolSerial = 'serial';
 const kTcpProtocolSimulator = 'simulator';
 const kTcpProtocolWiFi = 'wifi';
 const kTcpStop = ',;\n';
+const kTcpTypeAccelerometer = 'accelerometer';
+const kTcpTypeAuxData = 'auxData';
+const kTcpTypeBoardType = 'boardType';
+const kTcpTypeChannelSettings = 'channelSettings';
+const kTcpTypeConnect = 'connect';
+const kTcpTypeCommand = 'command';
+const kTcpTypeData = 'data';
+const kTcpTypeDisconnect = 'disconnect';
+const kTcpTypeDriver = 'driver';
+const kTcpTypeError = 'error';
+const kTcpTypeExamine = 'examine';
+const kTcpTypeImpedance = 'impedance';
+const kTcpTypeLog = 'log';
+const kTcpTypeProtocol = 'protocol';
+const kTcpTypeScan = 'scan';
+const kTcpTypeSd = 'sd';
+const kTcpTypeStatus = 'status';
+const kTcpTypeWifi = 'wifi';
 const kTcpWifiEraseCredentials = 'eraseCredentials';
 const kTcpWifiGetFirmwareVersion = 'getFirmwareVersion';
 const kTcpWifiGetIpAddress = 'getIpAddress';
@@ -108,6 +126,7 @@ ipcMain.on("quit", () => {
 const debug = false;
 const verbose = false;
 const sendCounts = true;
+let clients = [];
 
 let syncingChanSettings = false;
 let curTcpProtocol = kTcpProtocolBLE;
@@ -143,17 +162,95 @@ process.on('uncaughtException',function(err){
   }
 });
 
+const cleanupAfterNoClients = () => {
+  if (ganglionBLE) {
+    if (ganglionBLE.isConnected()) {
+      ganglionBLE.manualDisconnect = true;
+      ganglionBLE.disconnect(true)
+        .catch((err) => {
+          if (verbose) console.log(err);
+        })
+    }
+  }
+  if (wifi) {
+    if (wifi.isConnected()) {
+      wifi.disconnect()
+        .catch((err) => {
+          if (verbose) console.log(err);
+        })
+    }
+    if (wifi.isSearching()) {
+      _scanStopWifi(null, false).catch(console.log);
+    }
+  }
+  if (cyton.isConnected()) {
+    if (cyton.isStreaming()) {
+      cyton.streamStop()
+        .then(() => {
+          return cyton.disconnect();
+        })
+        .catch((err) => {
+          if (verbose) console.log(err);
+        })
+    } else {
+      cyton.disconnect()
+        .catch((err) => {
+          if (verbose) console.log(err);
+        })
+    }
+  }
+}
+
+const removeClient = (client) => {
+  let newClients = clients.filter(_client => _client !== client);
+  if (verbose) {
+    console.log(`Removed destroyed client, new client list: ${newClients}`);
+  }
+  clients = newClients;
+};
+
+const writeJSONToClient = (client, output, verbose) => {
+  if (!client.destroyed) {
+    const output = `${JSON.stringify(output)}\r\n`;
+    if (verbose) console.log(output);
+    client.write(output);
+  } else {
+    let newClients = clients.filter(_client => _client !== client);
+    if (verbose) {
+      console.log(`Removed destroyed client, new client list: ${newClients}`);
+    }
+    clients = newClients;
+  }
+};
+
+/**
+ * Send a code to the client
+ * @param client {Client}
+ * @param type {String} - The type of message
+ * @param code {String} -
+ */
+const writeCodeToClientOfType = (client, type, code, output) => {
+  writeJSONToClient(client,
+    {
+      ...output,
+      code: code,
+      type: type
+    }
+  , verbose);
+};
+
 // Start a TCP Server
 net.createServer((client) => {
   // Identify this client
+  clients.append(client);
   client.name = `${client.remoteAddress}:${client.remotePort}`;
 
   if (verbose) console.log(`Welcome ${client.name}`);
 
   if (ganglionHubError) {
-    client.write(`${kTcpCmdStatus},${kTcpCodeBadBLEStartUp}${kTcpStop}`);
+    writeCodeToClientOfType(client, kTcpTypeStatus, kTcpCodeBadBLEStartUp);
   } else {
-    client.write(`${kTcpCmdStatus},${kTcpCodeSuccess}${kTcpStop}`);
+    writeCodeToClientOfType(client, kTcpTypeStatus, kTcpCodeSuccess);
   }
 
   // Handle incoming messages from clients.
@@ -161,7 +258,10 @@ net.createServer((client) => {
     if (verbose) {
       console.log(`server got: ${data} from ${client.name}`);
     }
-    parseMessage(data, client);
+    try {
+      const message = JSON.parse(data.toString());
+      parseMessage(message, client);
+    }
   });
 
   // Remove the client from the list when it leaves
@@ -169,46 +269,14 @@ net.createServer((client) => {
     if (verbose) {
       console.log(`${client.name} has left`);
     }
+    removeClient(client);
     client.removeAllListeners('data');
     client.removeAllListeners('end');
     client.removeAllListeners('error');
-    if (ganglionBLE) {
-      if (ganglionBLE.isConnected()) {
-        ganglionBLE.manualDisconnect = true;
-        ganglionBLE.disconnect(true)
-          .catch((err) => {
-            if (verbose) console.log(err);
-          })
-      }
-    }
-    if (wifi) {
-      if (wifi.isConnected()) {
-        wifi.disconnect()
-          .catch((err) => {
-            if (verbose) console.log(err);
-          })
-      }
-      if (wifi.isSearching()) {
-        _scanStopWifi(null, false).catch(console.log);
-      }
-    }
-    if (cyton.isConnected()) {
-      if (cyton.isStreaming()) {
-        cyton.streamStop()
-          .then(() => {
-            return cyton.disconnect();
-          })
-          .catch((err) => {
-            if (verbose) console.log(err);
-          })
-      } else {
-        cyton.disconnect()
-          .catch((err) => {
-            if (verbose) console.log(err);
-          })
-      }
+    if (clients.length === 0) {
 
     }
+
 
   });
 
@@ -259,50 +327,17 @@ var accelerometerFunction = (client, accelDataCounts) => {
  *  A sample object.
  */
 var sampleFunction = (client, sample) => {
+  const output = {...sample};
   let packet = `${kTcpCmdData},${kTcpCodeSuccessSampleData},`;
   if (!sample.valid && curTcpProtocol !== kTcpProtocolBLE) {
     client.write(`${kTcpCmdData},${kTcpCodeBadPacketData}${kTcpStop}`);
     return;
   }
-  packet += sample.sampleNumber;
-  if (sample.hasOwnProperty('channelDataCounts')) {
-    for (var j = 0; j < sample.channelDataCounts.length; j++) {
-      packet += ',';
-      packet += sample.channelDataCounts[j];
-    }
-  }
 
-  if (sample.hasOwnProperty('stopByte')) {
-    packet += `,${sample.stopByte}`;
+  output.type = k
 
-    if (sample.stopByte === 0xC0) {
-      if (sample.hasOwnProperty('accelDataCounts')) {
-        for (var j = 0; j < sample.accelDataCounts.length; j++) {
-          packet += `,${sample.accelDataCounts[j]}`;
-        }
-      }
-    } else {
-      if (sample.hasOwnProperty('channelDataCounts') && sample.hasOwnProperty('auxData')) {
-        if (sample.channelDataCounts.length === k.OBCINumberOfChannelsDaisy) {
-          for (let i =0; i < sample.auxData.lower.byteLength; i++) {
-            packet += `,${sample.auxData.lower[i]}`;
-          }
-        } else {
-          for (let i =0; i < sample.auxData.byteLength; i++) {
-            packet += `,${sample.auxData[i]}`;
-          }
-        }
-      }
-    }
-  }
+  packet += `${JSON.stringify(output)}${kTcpStop}`;
 
-  if (sample.hasOwnProperty('timetamp')) {
-    packet += `,${sample.timestamp}${kTcpStop}`;
-  } else if (sample.hasOwnProperty('timeStamp')) {
-    packet += `,${sample.timeStamp}${kTcpStop}`;
-  } else {
-    packet += `${kTcpStop}`;
-  }
   // console.log(JSON.stringify(sample));
   // console.log(packet);
   if (!client.destroyed) client.write(packet);
@@ -343,51 +378,56 @@ const unrecognizedCommand = (client, cmd, msg) => {
 };
 
 const parseMessage = (msg, client) => {
-  let msgElements = msg.toString().split(',');
+  // let msgElements = msg.toString().split(',');
   // var char = String.fromCharCode(msg[0])
   // console.log('msgElements[0]',msgElements[0],char)
-  switch (msgElements[0]) {
-    case kTcpCmdBoardType:
+  switch (msg.type) {
+    case kTcpTypeBoardType:
       processBoardType(msg, client);
       break;
-    case kTcpCmdChannelSettings:
+    case kTcpTypeChannelSettings:
       processChannelSettings(msg, client);
       break;
-    case kTcpCmdConnect:
+    case kTcpTypeConnect:
       processConnect(msg, client);
       break;
-    case kTcpCmdCommand:
+    case kTcpTypeCommand:
       processCommand(msg, client);
       break;
-    case kTcpCmdDisconnect:
+    case kTcpTypeDisconnect:
       processDisconnect(msg, client);
       break;
-    case kTcpCmdExamine:
+    case kTcpTypeExamine:
       processExamine(msg, client);
       break;
-    case kTcpCmdAccelerometer:
+    case kTcpTypeAccelerometer:
       processAccelerometer(msg, client);
       break;
-    case kTcpCmdImpedance:
+    case kTcpTypeImpedance:
       processImpedance(msg, client);
       break;
-    case kTcpCmdProtocol:
+    case kTcpTypeProtocol:
       processProtocol(msg, client);
       break;
-    case kTcpCmdScan:
+    case kTcpTypeScan:
       processScan(msg, client);
       break;
-    case kTcpCmdSd:
+    case kTcpTypeSd:
       processSd(msg, client);
       break;
-    case kTcpCmdWifi:
+    case kTcpTypeWifi:
       processWifi(msg, client);
       break;
-    case kTcpCmdStatus:
+    case kTcpTypeStatus:
       // A simple loop back
-      client.write(`${kTcpCmdStatus},${kTcpCodeSuccess}${kTcpStop}`);
+      writeJSONToClient(client,
+        {
+          code: kTcpCodeSuccess,
+          type: kTcpTypeStatus
+        }
+      );
       break;
-    case kTcpCmdError:
+    case kTcpTypeError:
     default:
       unrecognizedCommand(client, kTcpCmdError, msgElements[0]);
       break;
