@@ -15,24 +15,24 @@ const kTcpActionSet = 'set';
 const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
-const kTcpCmdAccelerometer = 'a';
-const kTcpCmdAuxData = 'g';
-const kTcpCmdBoardType = 'b';
-const kTcpCmdChannelSettings = 'r';
-const kTcpCmdConnect = 'c';
-const kTcpCmdCommand = 'k';
-const kTcpCmdData = 't';
-const kTcpCmdDisconnect = 'd';
-const kTcpCmdDriver = 'f';
-const kTcpCmdError = 'e';
-const kTcpCmdExamine = 'x';
-const kTcpCmdImpedance = 'i';
-const kTcpCmdLog = 'l';
-const kTcpCmdProtocol = 'p';
-const kTcpCmdScan = 's';
-const kTcpCmdSd = 'm';
-const kTcpCmdStatus = 'q';
-const kTcpCmdWifi = 'w';
+// const kTcpCmdAccelerometer = 'a';
+// const kTcpCmdAuxData = 'g';
+// const kTcpCmdBoardType = 'b';
+// const kTcpCmdChannelSettings = 'r';
+// const kTcpCmdConnect = 'c';
+// const kTcpCmdCommand = 'k';
+// const kTcpCmdData = 't';
+// const kTcpCmdDisconnect = 'd';
+// const kTcpCmdDriver = 'f';
+// const kTcpCmdError = 'e';
+// const kTcpCmdExamine = 'x';
+// const kTcpCmdImpedance = 'i';
+// const kTcpCmdLog = 'l';
+// const kTcpCmdProtocol = 'p';
+// const kTcpCmdScan = 's';
+// const kTcpCmdSd = 'm';
+// const kTcpCmdStatus = 'q';
+// const kTcpCmdWifi = 'w';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeBadBLEStartUp = 501;
 const kTcpCodeErrorUnknown = 499;
@@ -302,13 +302,11 @@ if (verbose) {
  *  Array of counts, no gain.
  */
 var accelerometerFunction = (client, accelDataCounts) => {
-  let packet = `${kTcpCmdAccelerometer},${kTcpCodeSuccessAccelData}`;
-  for (var j = 0; j < accelDataCounts.length; j++) {
-    packet += ',';
-    packet += accelDataCounts[j];
-  }
-  packet += `${kTcpStop}`;
-  client.write(packet);
+  writeJSONToClient(client, {
+    accelDataCounts: accelDataCounts,
+    code: kTcpCodeSuccessAccelData,
+    type: kTcpTypeAccelerometer
+  }, false);
 };
 
 /**
@@ -327,20 +325,18 @@ var accelerometerFunction = (client, accelDataCounts) => {
  *  A sample object.
  */
 var sampleFunction = (client, sample) => {
-  const output = {...sample};
-  let packet = `${kTcpCmdData},${kTcpCodeSuccessSampleData},`;
   if (!sample.valid && curTcpProtocol !== kTcpProtocolBLE) {
-    client.write(`${kTcpCmdData},${kTcpCodeBadPacketData}${kTcpStop}`);
+    writeJSONToClient(client, {
+      code: kTcpCodeBadPacketData,
+      type: kTcpTypeData
+    });
     return;
   }
-
-  output.type = k
-
-  packet += `${JSON.stringify(output)}${kTcpStop}`;
-
-  // console.log(JSON.stringify(sample));
-  // console.log(packet);
-  if (!client.destroyed) client.write(packet);
+  writeJSONToClient(client, {
+    ...sample,
+    code: kTcpCodeSuccessSampleData,
+    type: kTcpTypeAccelerometer
+  });
 };
 
 /**
@@ -350,10 +346,12 @@ var sampleFunction = (client, sample) => {
  * @param message {Buffer}
  *  The message...
  */
-var messageFunction = (client, message) => {
-  console.log(message.toString());
-  const packet = `${kTcpCmdLog},${kTcpCodeSuccess},${message.toString()}${kTcpStop}`;
-  client.write(packet);
+const messageFunction = (client, message) => {
+  writeJSONToClient(client, {
+    code: kTcpCodeSuccess,
+    message: message.toString(),
+    type: kTcpTypeLog
+  }, verbose);
 };
 
 /**
@@ -364,17 +362,27 @@ var messageFunction = (client, message) => {
  * @param impedanceObj.channelNumber {Number} - Channels 1, 2, 3, 4 or 0 for reference
  * @param impedanceObj.impedanceValue {Number} - The impedance value in ohms
  */
-var impedanceFunction = (client, impedanceObj) => {
-  const packet = `${kTcpCmdImpedance},${kTcpCodeSuccessImpedanceData},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
-  client.write(packet);
+const impedanceFunction = (client, impedanceObj) => {
+  writeJSONToClient(client, {
+    ...impedanceObj,
+    code: kTcpCodeSuccessImpedanceData,
+    type: kTcpTypeImpedance
+  });
+  // const packet = `${kTcpCmdImpedance},${kTcpCodeSuccessImpedanceData},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
+  // client.write(packet);
 };
 
-var closeFunction = () => {
+const closeFunction = () => {
   if (verbose) console.log('close event fired');
 };
 
 const unrecognizedCommand = (client, cmd, msg) => {
-  client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotRecognized},${msg}${kTcpStop}`);
+  writeJSONToClient(client, {
+    code: kTcpCodeSuccessImpedanceData,
+    message: msg,
+    type: kTcpTypeError
+  });
+  // client.write(`${kTcpCmdError},${kTcpCodeErrorCommandNotRecognized},${msg}${kTcpStop}`);
 };
 
 const parseMessage = (msg, client) => {
