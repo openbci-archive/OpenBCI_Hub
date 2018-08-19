@@ -255,6 +255,7 @@ var accelerometerFunction = (client, accelDataCounts) => {
  * @param sample.auxData.lower {Buffer} - Buffer for daisy
  * @param sample.valid {Boolean} - If it is valid
  * @param sample.stopByte {Number} - The stop byte
+ * @param sample.timeStamp {Number} - The time stamp of the sample
  *  A sample object.
  */
 var sampleFunction = (client, sample) => {
@@ -295,8 +296,13 @@ var sampleFunction = (client, sample) => {
     }
   }
 
-
-  packet += `${kTcpStop}`;
+  if (sample.hasOwnProperty('timetamp')) {
+    packet += `,${sample.timestamp}${kTcpStop}`;
+  } else if (sample.hasOwnProperty('timeStamp')) {
+    packet += `,${sample.timeStamp}${kTcpStop}`;
+  } else {
+    packet += `${kTcpStop}`;
+  }
   // console.log(JSON.stringify(sample));
   // console.log(packet);
   if (!client.destroyed) client.write(packet);

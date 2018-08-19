@@ -1,3 +1,9 @@
+# v1.5.0
+
+### New Features
+
+* Started sending time stamps with each data sample
+
 # v1.4.6
 
 ### New Features
