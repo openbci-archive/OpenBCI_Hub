@@ -210,16 +210,18 @@ const removeClient = (client) => {
 };
 
 const writeJSONToClient = (client, output, verbose) => {
-  if (!client.destroyed) {
-    const output = `${JSON.stringify(output)}\r\n`;
-    if (verbose) console.log(output);
-    client.write(output);
-  } else {
-    let newClients = clients.filter(_client => _client !== client);
-    if (verbose) {
-      console.log(`Removed destroyed client, new client list: ${newClients}`);
+  if (client) {
+    if (!client.destroyed) {
+      const output = `${JSON.stringify(output)}\r\n`;
+      if (verbose) console.log(output);
+      client.write(output);
+    } else {
+      let newClients = clients.filter(_client => _client !== client);
+      if (verbose) {
+        console.log(`Removed destroyed client, new client list: ${newClients}`);
+      }
+      clients = newClients;
     }
-    clients = newClients;
   }
 };
 
@@ -2034,11 +2036,29 @@ const _scanStopBLE = (client, writeOutMessage) => {
     ganglionBLE.searchStop()
       .then(() => {
         if (verbose) console.log('stopped ble scan');
-        if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        if (writeOutMessage) {
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeScan,
+            kTcpCodeSuccess,
+            {
+              action: kTcpActionStop
+            }
+          );
+          // client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        }
         resolve();
       })
       .catch((err) => {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeErrorScanCouldNotStop,
+          {
+            message: err.message
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
         reject(err);
       });
   });
@@ -2077,7 +2097,15 @@ const _processScanBLE = (msg, client) => {
         if (verbose) console.log("ganglion noble not started, attempting to start before scan");
         _protocolStartBLE()
           .catch((err) => {
-            client.write(`${kTcpCmdScan},${kTcpCodeErrorProtocolBLEStart},${err}${kTcpStop}`);
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeScan,
+              kTcpCodeErrorProtocolBLEStart,
+              {
+                message: err.message
+              }
+            );
+            // client.write(`${kTcpCmdScan},${kTcpCodeErrorProtocolBLEStart},${err}${kTcpStop}`);
             return Promise.resolve();
           })
           .then(() => {
@@ -2085,7 +2113,15 @@ const _processScanBLE = (msg, client) => {
             return Promise.resolve();
           })
           .catch((err) => {
-            client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeScan,
+              kTcpCodeErrorScanCouldNotStart,
+              {
+                message: err.message
+              }
+            );
+            // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
           })
 
       } else {
@@ -2094,9 +2130,21 @@ const _processScanBLE = (msg, client) => {
       break;
     case kTcpActionStatus:
       if (ganglionBLE.isSearching()) {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeStatusScanning,
+          {}
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeStatusNotScanning,
+          {}
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
       }
       break;
     case kTcpActionStop:
@@ -2109,7 +2157,13 @@ const _processScanBLE = (msg, client) => {
             if (verbose) console.log(`err starting new scan ${err}`);
           });
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeErrorScanNoScanToStop,
+          {}
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       }
       break;
   }
@@ -2120,11 +2174,24 @@ const _scanStartWifi = (client) => {
     const localName = obj.localName;
     localArray.push(obj);
     if (verbose) console.log(`Wifi shield found: ${obj}`);
-    client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${localName}${kTcpStop}`);
+    writeCodeToClientOfType(
+      client,
+      kTcpTypeScan,
+      kTcpCodeSuccessWifiShieldFound,
+      {
+        name: localName
+      }
+    );
+    // client.write(`${kTcpCmdScan},${kTcpCodeSuccessWifiShieldFound},${localName}${kTcpStop}`);
   };
   const scanStopped = () => {
     if (verbose) console.log('Scan stopped for Wifi shields');
-    if (client) client.write(`${kTcpCmdScan},${kTcpCodeTimeoutScanStopped}${kTcpStop}`);
+    writeCodeToClientOfType(
+      client,
+      kTcpTypeScan,
+      kTcpCodeTimeoutScanStopped,
+      {}
+    );
     wifiRemoveListeners();
   };
   return new Promise((resolve, reject) => {
@@ -2133,12 +2200,29 @@ const _scanStartWifi = (client) => {
 
     wifi.searchStart()
       .then(() => {
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeSuccess,
+          {
+            action: kTcpActionStart
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         resolve();
       })
       .catch((err) => {
         wifiRemoveListeners();
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${kTcpProtocolWiFi},${err}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeErrorScanCouldNotStart,
+          {
+            message: err.message,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${kTcpProtocolWiFi},${err}${kTcpStop}`);
         reject(err);
       });
   });
@@ -2157,11 +2241,32 @@ const _scanStopWifi = (client, writeOutMessage) => {
     wifiRemoveListeners();
     wifi.searchStop()
       .then(() => {
-        if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        if (writeOutMessage) {
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeScan,
+            kTcpCodeSuccess,
+            {
+              action: kTcpActionStop
+            }
+          );
+          // client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        }
         resolve();
       })
       .catch((err) => {
-        if (writeOutMessage) client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${kTcpProtocolWiFi},${err}${kTcpStop}`);
+        if (writeOutMessage) {
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeScan,
+            kTcpCodeErrorScanCouldNotStop,
+            {
+              message: err.message,
+              protocol: kTcpProtocolWiFi
+            }
+          );
+          // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${kTcpProtocolWiFi},${err}${kTcpStop}`);
+        }
         reject(err);
       });
   });
@@ -2180,11 +2285,28 @@ const _processScanSerialStart = (client) => {
         const localName = port.comName;
         localArray.push(port);
         if (verbose) console.log(`Serial port device found: ${localName}`);
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccessSerialDeviceFound},${localName}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeSuccessSerialDeviceFound,
+          {
+            name: localName
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeSuccessSerialDeviceFound},${localName}${kTcpStop}`);
       });
     })
     .catch((err) => {
-      client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${kTcpProtocolSerial},${err.message}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeScan,
+        kTcpCodeErrorScanCouldNotStop,
+        {
+          message: err.message,
+          protocol: kTcpProtocolSerial
+        }
+      );
+      // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStop},${kTcpProtocolSerial},${err.message}${kTcpStop}`);
     });
 };
 
@@ -2196,52 +2318,116 @@ const _processScanWifiStart = (client) => {
         return _scanStartWifi(client);
       })
       .then(() => {
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeSuccess,
+          {
+            action: kTcpActionStart,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
       })
       .catch((err) => {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeErrorScanCouldNotStart,
+          {
+            action: kTcpActionStart,
+            message: err.message,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
         console.log(err);
       });
   } else {
     if (verbose) console.log('no scan was running, before starting this scan.');
     _scanStartWifi(client)
       .then(() => {
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeSuccess,
+          {
+            action: kTcpActionStart,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
       })
       .catch((err) => {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeErrorScanCouldNotStart,
+          {
+            message: err.message,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
         console.log(err);
       });
   }
 };
 
 const _processScanSerial = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
       _processScanSerialStart();
       break;
     case kTcpActionStatus:
-      client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeScan,
+        kTcpCodeStatusNotScanning,
+        {
+          action: kTcpActionStatus,
+          protocol: kTcpProtocolSerial
+        }
+      );
+      // client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeStatusNotScanning}${kTcpStop}`);
       break;
     case kTcpActionStop:
-      client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeScan,
+        kTcpCodeErrorScanNoScanToStop,
+        {
+          action: kTcpActionStop,
+          protocol: kTcpProtocolSerial
+        }
+      );
+      // client.write(`${kTcpCmdScan},${kTcpProtocolSerial},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       break;
   }
 };
 
 
 const _processScanWifi = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
       if (_.isNull(wifi)) {
         if (verbose) console.log("wifi not started, attempting to start before scan");
         _protocolStartWifi((err) => {
           if (err) {
-            client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeScan,
+              kTcpCodeStatusNotScanning,
+              {
+                action: kTcpActionStart,
+                protocol: kTcpProtocolWiFi
+              }
+            );
+            // client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
           } else {
             _processScanWifiStart(client);
           }
@@ -2252,17 +2438,53 @@ const _processScanWifi = (msg, client) => {
       break;
     case kTcpActionStatus:
       if (wifi.isSearching()) {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeStatusScanning,
+          {
+            action: kTcpActionStatus,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeStatusScanning}${kTcpStop}`);
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeStatusNotScanning,
+          {
+            action: kTcpActionStatus,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeStatusNotScanning}${kTcpStop}`);
       }
       break;
     case kTcpActionStop:
       if (wifi.isSearching()) {
         _scanStopWifi().catch(console.log);
-        client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeSuccess,
+          {
+            action: kTcpActionStop,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
       } else {
-        client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeScan,
+          kTcpCodeErrorScanNoScanToStop,
+          {
+            action: kTcpActionStop,
+            protocol: kTcpProtocolWiFi
+          }
+        );
+        // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanNoScanToStop}${kTcpStop}`);
       }
       break;
   }
@@ -2288,51 +2510,135 @@ const processScan = (msg, client) => {
   }
 };
 
+/**
+ * For SD card recording
+ * @param msg {Object}
+ * @param msg.action {String} - The action to take
+ * @param msg.command {String} - The command for setting the sd card
+ * @param client
+ * @private
+ */
 const _processSdSerial = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
-      cyton.sdStart(msgElements[2])
+      cyton.sdStart(msg.command)
         .then(() => {
-          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeSuccess,
+            {
+              action: kTcpActionStop,
+              protocol: kTcpProtocolSerial
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStart},${err.message}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeErrorUnknown,
+            {
+              action: kTcpActionStart,
+              message: err.message,
+              protocol: kTcpProtocolSerial
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStart},${err.message}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
       cyton.sdStop()
         .then(() => {
-          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeSuccess,
+            {
+              action: kTcpActionStop,
+              protocol: kTcpProtocolSerial
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStop},${err.message}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeErrorUnknown,
+            {
+              action: kTcpActionStop,
+              message: err.message,
+              protocol: kTcpProtocolSerial
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStop},${err.message}${kTcpStop}`);
         });
       break;
   }
 };
 
 const _processSdWifi = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
-      wifi.sdStart(msgElements[2])
+      wifi.sdStart(msg.command)
         .then(() => {
-          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeSuccess,
+            {
+              action: kTcpActionStart,
+              protocol: kTcpProtocolWiFi
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStart},${err.message}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeErrorUnknown,
+            {
+              action: kTcpActionStart,
+              message: err.message,
+              protocol: kTcpProtocolWiFi
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStart},${err.message}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
       wifi.sdStop()
         .then(() => {
-          client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeSuccess,
+            {
+              action: kTcpActionStop,
+              protocol: kTcpProtocolWiFi
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStop},${err.message}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeSd,
+            kTcpCodeErrorUnknown,
+            {
+              action: kTcpActionStop,
+              message: err.message,
+              protocol: kTcpProtocolWiFi
+            }
+          );
+          // client.write(`${kTcpCmdSd},${kTcpCodeErrorUnknown},${kTcpActionStop},${err.message}${kTcpStop}`);
         });
       break;
   }
@@ -2352,7 +2658,15 @@ const processSd = (msg, client) => {
       _processSdSerial(msg, client);
       break;
     case kTcpProtocolBLE:
-      client.write(`${kTcpCmdSd},${kTcpCodeErrorSDNotSupportedForGanglion}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeSd,
+        kTcpCodeErrorSDNotSupportedForGanglion,
+        {
+          protocol: kTcpProtocolBLE
+        }
+      );
+      // client.write(`${kTcpCmdSd},${kTcpCodeErrorSDNotSupportedForGanglion}${kTcpStop}`);
       break;
   }
 };
@@ -2365,35 +2679,101 @@ const processSd = (msg, client) => {
  */
 const processWifi = (msg, client) => {
   if (_.isNull(wifi)) {
-    client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiNotConnected}${kTcpStop}`);
+    writeCodeToClientOfType(
+      client,
+      kTcpTypeWifi,
+      kTcpCodeErrorWifiNotConnected,
+      {}
+    );
+    // client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiNotConnected}${kTcpStop}`);
     return;
   }
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpWifiEraseCredentials:
       wifi.eraseWifiCredentials()
         .then((res) => {
-          client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiEraseCredentials},${res}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeWifi,
+            kTcpCodeSuccess,
+            {
+              command: kTcpWifiEraseCredentials,
+              message: res
+            }
+          );
+          // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiEraseCredentials},${res}${kTcpStop}`);
         })
         .catch((err) => {
-          client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiCouldNotEraseCredentials},${err.message}${kTcpStop}`);
+          writeCodeToClientOfType(
+            client,
+            kTcpTypeWifi,
+            kTcpCodeErrorWifiCouldNotEraseCredentials,
+            {
+              command: kTcpWifiEraseCredentials,
+              message: err.message
+            }
+          );
+          // client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiCouldNotEraseCredentials},${err.message}${kTcpStop}`);
         });
       break;
     case kTcpWifiGetFirmwareVersion:
-      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetFirmwareVersion},${wifi.getFirmwareVersion()}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeWifi,
+        kTcpCodeSuccess,
+        {
+          command: kTcpWifiGetFirmwareVersion,
+          firmware: wifi.getFirmwareVersion()
+        }
+      );
+      // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetFirmwareVersion},${wifi.getFirmwareVersion()}${kTcpStop}`);
       break;
     case kTcpWifiGetIpAddress:
-      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetIpAddress},${wifi.getIpAddress()}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeWifi,
+        kTcpCodeSuccess,
+        {
+          command: kTcpWifiGetIpAddress,
+          firmware: wifi.getIpAddress()
+        }
+      );
+      // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetIpAddress},${wifi.getIpAddress()}${kTcpStop}`);
       break;
     case kTcpWifiGetMacAddress:
-      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetMacAddress},${wifi.getMacAddress()}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeWifi,
+        kTcpCodeSuccess,
+        {
+          command: kTcpWifiGetMacAddress,
+          firmware: wifi.getMacAddress()
+        }
+      );
+      // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetMacAddress},${wifi.getMacAddress()}${kTcpStop}`);
       break;
     case kTcpWifiGetTypeOfAttachedBoard:
-      client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetTypeOfAttachedBoard},${wifi.getBoardType()}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeWifi,
+        kTcpCodeSuccess,
+        {
+          command: kTcpWifiGetTypeOfAttachedBoard,
+          firmware: wifi.getBoardType()
+        }
+      );
+      // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetTypeOfAttachedBoard},${wifi.getBoardType()}${kTcpStop}`);
       break;
     default:
-      client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiActionNotRecognized}${kTcpStop}`);
+      writeCodeToClientOfType(
+        client,
+        kTcpTypeWifi,
+        kTcpCodeErrorWifiActionNotRecognized,
+        {}
+      );
+      // client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiActionNotRecognized}${kTcpStop}`);
       break;
   }
 };
