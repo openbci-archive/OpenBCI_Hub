@@ -94,7 +94,7 @@ const kTcpProtocolBLED112 = 'bled112';
 const kTcpProtocolSerial = 'serial';
 const kTcpProtocolSimulator = 'simulator';
 const kTcpProtocolWiFi = 'wifi';
-const kTcpStop = ',;\n';
+const kTcpStop = '\r\n';
 const kTcpTypeAccelerometer = 'accelerometer';
 const kTcpTypeAuxData = 'auxData';
 const kTcpTypeBoardType = 'boardType';
@@ -212,7 +212,7 @@ const removeClient = (client) => {
 const writeJSONToClient = (client, output, verbose) => {
   if (client) {
     if (!client.destroyed) {
-      const output = `${JSON.stringify(output)}\r\n`;
+      const output = `${JSON.stringify(output)}${kTcpStop}`;
       if (verbose) console.log(output);
       client.write(output);
     } else {
@@ -1347,7 +1347,7 @@ const _examineWifi = (msg, client) => {
         kTcpCodeSuccess,
         {}
       );
-      client.write(`${kTcpCmdExamine},${kTcpCodeSuccess}${kTcpStop}`);
+      // client.write(`${kTcpCmdExamine},${kTcpCodeSuccess}${kTcpStop}`);
       return Promise.resolve();
     })
     .catch((err) => {
@@ -1812,7 +1812,16 @@ const _processProtocolBLE = (msg, client) => {
         );
         // client.write(`${kTcpCmdProtocol},${kTcpCodeSuccess},${kTcpProtocolBLE},${kTcpActionStatus}${kTcpStop}`);
       } else {
-        client.write(`${kTcpCmdProtocol},${kTcpCodeBadBLEStartUp},${kTcpProtocolBLE},${kTcpActionStatus}${kTcpStop}`);
+        writeCodeToClientOfType(
+          client,
+          kTcpTypeProtocol,
+          kTcpCodeBadBLEStartUp,
+          {
+            action: kTcpActionStatus,
+            protocol: kTcpProtocolBLE
+          }
+        );
+        // client.write(`${kTcpCmdProtocol},${kTcpCodeBadBLEStartUp},${kTcpProtocolBLE},${kTcpActionStatus}${kTcpStop}`);
       }
       break;
     case kTcpActionStop:
