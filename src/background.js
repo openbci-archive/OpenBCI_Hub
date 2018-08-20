@@ -194,16 +194,20 @@ const removeClient = (client) => {
 const writeJSONToClient = (client, output, verbose) => {
   if (client) {
     if (!client.destroyed) {
-      const output = `${JSON.stringify(output)}${kTcpStop}`;
-      if (verbose) console.log(output);
-      client.write(output);
+      const serializedOutput = `${JSON.stringify(output)}${kTcpStop}`;
+      if (verbose) console.log(">>>>", serializedOutput);
+      client.write(serializedOutput);
     } else {
+      if (verbose) console.log("Client destroyed");
       let newClients = clients.filter(_client => _client !== client);
       if (verbose) {
         console.log(`Removed destroyed client, new client list: ${newClients}`);
       }
       clients = newClients;
     }
+  } else {
+    if (verbose) console.log("Client undefined");
+
   }
 };
 
@@ -226,7 +230,7 @@ const writeCodeToClientOfType = (client, type, code, output) => {
 // Start a TCP Server
 net.createServer((client) => {
   // Identify this client
-  clients.append(client);
+  clients.push(client);
   client.name = `${client.remoteAddress}:${client.remotePort}`;
 
   if (verbose) console.log(`Welcome ${client.name}`);
@@ -252,11 +256,16 @@ net.createServer((client) => {
     if (verbose) {
       console.log(`server got: ${data} from ${client.name}`);
     }
-    try {
-      const message = JSON.parse(data.toString());
-      parseMessage(message, client);
-    } catch (e) {
-      if (verbose) console.log(e);
+    let rawMessages = data.toString().split(kTcpStop);
+    // console.log("rawMessages", rawMessages);
+    for (let i = 0; i < rawMessages.length - 1; i++) {
+      try {
+        const message = JSON.parse(rawMessages[i].toString());
+        console.log("message", message);
+        parseMessage(message, client);
+      } catch (e) {
+        // if (verbose) console.log(e);
+      }
     }
   });
 
@@ -332,7 +341,7 @@ const sampleFunction = (client, sample) => {
       sample,
       {
         code: kTcpCodeSuccessSampleData,
-        type: kTcpTypeAccelerometer
+        type: kTcpTypeData
       }
     )
   );
@@ -359,6 +368,7 @@ const messageFunction = (client, message) => {
  *  A TCP `net` client
  * @param impedanceObj {Object}
  * @param impedanceObj.channelNumber {Number} - Channels 1, 2, 3, 4 or 0 for reference
+ * @param impedanceObj.impedanceValue {Number} - The impedance value in ohms
  * @param impedanceObj.impedanceValue {Number} - The impedance value in ohms
  */
 const impedanceFunction = (client, impedanceObj) => {
@@ -387,6 +397,7 @@ const parseMessage = (msg, client) => {
   // let msgElements = msg.toString().split(',');
   // var char = String.fromCharCode(msg[0])
   // console.log('msgElements[0]',msgElements[0],char)
+  // console.log(`parseMessage of type: ${msg.type}`);
   switch (msg.type) {
     case kTcpTypeBoardType:
       processBoardType(msg, client);
@@ -1617,6 +1628,7 @@ const protocolSafeStart = () => {
 const _protocolStartBLE = (protocol) => {
   return new Promise((resolve, reject) => {
     protocolSafeStart();
+    console.log("protocol". protocol);
     if (protocol === kTcpProtocolBLED112) {
       /**
        * @type {Ganglion}
@@ -1704,9 +1716,6 @@ const _protocolStartWifi = () => {
  * @private
  */
 const _processProtocolBLE = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
-  // const protocol = msgElements[2];
   curTcpProtocol = msg.protocol;
   switch (msg.action) {
     case kTcpActionStart:
@@ -1731,7 +1740,10 @@ const _processProtocolBLE = (msg, client) => {
             );
             // client.write(`${kTcpCmdScan},${kTcpCodeSuccessGanglionFound},${localName}${kTcpStop}`);
           };
-          ganglionBLE.on(k.OBCIEmitterGanglionFound, ganglionFound);
+          ganglionBLE.on(k.OBCIEmitterGanglionFound, (ganglion) => {
+            ganglionFound(ganglion);
+          });
+
           ganglionBLE.once(k.OBCINobleEmitterScanStop, () => {
             ganglionBLE.removeAllListeners(k.OBCIEmitterGanglionFound);
             writeCodeToClientOfType(
@@ -1818,9 +1830,9 @@ const _processProtocolBLE = (msg, client) => {
 };
 
 const _processProtocolSerial = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
       _protocolStartSerial()
         .then(() => {
@@ -1872,9 +1884,9 @@ const _processProtocolSerial = (msg, client) => {
 };
 
 const _processProtocolWifi = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
       _protocolStartWifi()
         .then(() => {
@@ -1930,14 +1942,15 @@ const _processProtocolWifi = (msg, client) => {
 
 /**
  * For processing incoming protocol commands
- * @param msg {String} - The actual message. cmd,newProtocol,end
+ * @param msg {Object} - The actual message. cmd,newProtocol,end
+ * @param msg.protocol {String} - The protocol to use
  * @param client {Object} - writable TCP client
  */
 const processProtocol = (msg, client) => {
-  if (verbose) console.log(msg);
-  let msgElements = msg.toString().split(',');
-  const protocol = msgElements[2];
-  switch (protocol) {
+  if (verbose) console.log("processProtocol", msg);
+  // let msgElements = msg.toString().split(',');
+  // const protocol = msgElements[2];
+  switch (msg.protocol) {
     case kTcpProtocolBLE:
     case kTcpProtocolBLED112:
       _processProtocolBLE(msg, client);
@@ -2075,9 +2088,9 @@ const _processScanBLEStart = (client) => {
 };
 
 const _processScanBLE = (msg, client) => {
-  let msgElements = msg.toString().split(',');
-  const action = msgElements[1];
-  switch (action) {
+  // let msgElements = msg.toString().split(',');
+  // const action = msgElements[1];
+  switch (msg.action) {
     case kTcpActionStart:
       if (_.isNull(ganglionBLE)) {
         if (verbose) console.log("ganglion noble not started, attempting to start before scan");
@@ -2104,7 +2117,7 @@ const _processScanBLE = (msg, client) => {
               kTcpTypeScan,
               kTcpCodeErrorScanCouldNotStart,
               {
-                message: err.message
+                message: err
               }
             );
             // client.write(`${kTcpCmdScan},${kTcpCodeErrorScanCouldNotStart},${err}${kTcpStop}`);
