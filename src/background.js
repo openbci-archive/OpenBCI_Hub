@@ -15,24 +15,6 @@ const kTcpActionSet = 'set';
 const kTcpActionStart = 'start';
 const kTcpActionStatus = 'status';
 const kTcpActionStop = 'stop';
-// const kTcpCmdAccelerometer = 'a';
-// const kTcpCmdAuxData = 'g';
-// const kTcpCmdBoardType = 'b';
-// const kTcpCmdChannelSettings = 'r';
-// const kTcpCmdConnect = 'c';
-// const kTcpCmdCommand = 'k';
-// const kTcpCmdData = 't';
-// const kTcpCmdDisconnect = 'd';
-// const kTcpCmdDriver = 'f';
-// const kTcpCmdError = 'e';
-// const kTcpCmdExamine = 'x';
-// const kTcpCmdImpedance = 'i';
-// const kTcpCmdLog = 'l';
-// const kTcpCmdProtocol = 'p';
-// const kTcpCmdScan = 's';
-// const kTcpCmdSd = 'm';
-// const kTcpCmdStatus = 'q';
-// const kTcpCmdWifi = 'w';
 const kTcpCodeBadPacketData = 500;
 const kTcpCodeBadBLEStartUp = 501;
 const kTcpCodeErrorUnknown = 499;
@@ -124,7 +106,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = false;
+const verbose = true;
 const sendCounts = true;
 let clients = [];
 
@@ -199,7 +181,7 @@ const cleanupAfterNoClients = () => {
         })
     }
   }
-}
+};
 
 const removeClient = (client) => {
   let newClients = clients.filter(_client => _client !== client);
@@ -234,12 +216,11 @@ const writeJSONToClient = (client, output, verbose) => {
  */
 const writeCodeToClientOfType = (client, type, code, output) => {
   writeJSONToClient(client,
-    {
-      ...output,
+    Object.assign({}, output, {
       code: code,
       type: type
-    }
-  , verbose);
+    }),
+    verbose);
 };
 
 // Start a TCP Server
@@ -251,9 +232,19 @@ net.createServer((client) => {
   if (verbose) console.log(`Welcome ${client.name}`);
 
   if (ganglionHubError) {
-    writeCodeToClientOfType(client, kTcpTypeStatus, kTcpCodeBadBLEStartUp);
+    writeCodeToClientOfType(
+      client,
+      kTcpTypeStatus,
+      kTcpCodeBadBLEStartUp,
+      {}
+    );
   } else {
-    writeCodeToClientOfType(client, kTcpTypeStatus, kTcpCodeSuccess);
+    writeCodeToClientOfType(
+      client,
+      kTcpTypeStatus,
+      kTcpCodeSuccess,
+      {}
+    );
   }
 
   // Handle incoming messages from clients.
@@ -264,6 +255,8 @@ net.createServer((client) => {
     try {
       const message = JSON.parse(data.toString());
       parseMessage(message, client);
+    } catch (e) {
+      if (verbose) console.log(e);
     }
   });
 
@@ -277,10 +270,8 @@ net.createServer((client) => {
     client.removeAllListeners('end');
     client.removeAllListeners('error');
     if (clients.length === 0) {
-
+      cleanupAfterNoClients();
     }
-
-
   });
 
   client.on('error', (err) => {
@@ -304,7 +295,7 @@ if (verbose) {
  * @param accelDataCounts {Array}
  *  Array of counts, no gain.
  */
-var accelerometerFunction = (client, accelDataCounts) => {
+const accelerometerFunction = (client, accelDataCounts) => {
   writeJSONToClient(client, {
     accelDataCounts: accelDataCounts,
     code: kTcpCodeSuccessAccelData,
@@ -327,7 +318,7 @@ var accelerometerFunction = (client, accelDataCounts) => {
  * @param sample.timeStamp {Number} - The time stamp of the sample
  *  A sample object.
  */
-var sampleFunction = (client, sample) => {
+const sampleFunction = (client, sample) => {
   if (!sample.valid && curTcpProtocol !== kTcpProtocolBLE) {
     writeJSONToClient(client, {
       code: kTcpCodeBadPacketData,
@@ -335,11 +326,16 @@ var sampleFunction = (client, sample) => {
     });
     return;
   }
-  writeJSONToClient(client, {
-    ...sample,
-    code: kTcpCodeSuccessSampleData,
-    type: kTcpTypeAccelerometer
-  });
+  writeJSONToClient(client,
+    Object.assign(
+      {},
+      sample,
+      {
+        code: kTcpCodeSuccessSampleData,
+        type: kTcpTypeAccelerometer
+      }
+    )
+  );
 };
 
 /**
@@ -366,11 +362,10 @@ const messageFunction = (client, message) => {
  * @param impedanceObj.impedanceValue {Number} - The impedance value in ohms
  */
 const impedanceFunction = (client, impedanceObj) => {
-  writeJSONToClient(client, {
-    ...impedanceObj,
+  writeJSONToClient(client,Object.assign({}, impedanceObj,{
     code: kTcpCodeSuccessImpedanceData,
     type: kTcpTypeImpedance
-  });
+  }));
   // const packet = `${kTcpCmdImpedance},${kTcpCodeSuccessImpedanceData},${impedanceObj.channelNumber},${impedanceObj.impedanceValue}${kTcpStop}`;
   // client.write(packet);
 };
@@ -972,35 +967,20 @@ const _processConnectSerial = (msg, client) => {
  * @param msg.burst {Boolean} - True to use burst mode
  * @param msg.ipAdderss {String} - The ipAddress of the wifi shield.
  * @param msg.latency {Number} - The latency
- * @param msg.shieldName {String} - The name of the wifi shield
+ * @param msg.name {String} - The name or ip address of the wifi shield
  * @param msg.protocol {String} - The type of internet protocol to use, either 'udp' or 'tcp'.
  * @param msg.sampleRate {Number} - The sample rate to use
  * @param client
  * @private
  */
 const _connectWifi = (msg, client) => {
-  if (verbose) console.log(`Connecting to WiFi Shield called ${msg.shieldName}`);
-  // let burst = false;
-  // let internetProtocol = kTcpInternetProtocolTCP;
-  // if (msgElements.length > 4) {
-  //   if (msgElements[4] === kTcpInternetProtocolUDP) {
-  //     internetProtocol = kTcpInternetProtocolUDP;
-  //   } else if (msgElements[4] === kTcpInternetProtocolUDPBurst) {
-  //     internetProtocol = kTcpInternetProtocolUDP;
-  //     burst = true;
-  //   }
-  // }
-  // let options = {
-  //   latency: msg.latency,
-  //   sampleRate: parseInt(msgElements[2]),
-  //   protocol: internetProtocol,
-  //   burst: burst
-  // };
-  // if (ip.isV4Format(msgElements[1])) {
-  //   options['ipAddress']= msgElements[1];
-  // } else {
-  //   options['shieldName']= msgElements[1];
-  // }
+  if (verbose) console.log(`Connecting to WiFi Shield called ${msg.name}`);
+
+  if (ip.isV4Format(msg.name)) {
+    msg['ipAddress'] = msg.name;
+  } else {
+    msg['shieldName'] = msg.name;
+  }
   wifi.connect(msg)
     .then(() => {
       //TODO: Finish this connect
@@ -1321,21 +1301,18 @@ const _examineWifi = (msg, client) => {
   // let msgElements = msg.toString().split(',');
 
   if (verbose) console.log(`Examining to WiFi Shield called ${msg.shieldName ? msg.shieldName : msg.ipAdderss}`);
-  // if (ip.isV4Format(msgElements[1])) {
-  //   options = {
-  //     examineMode: true,
-  //     ipAddress: msgElements[1]
-  //   }
-  // } else {
-  //   options = {
-  //     examineMode: true,
-  //     shieldName: msgElements[1]
-  //   }
-  // }
-  let options = {
-    ...msg,
-    examineMode: true
-  };
+  let options;
+  if (ip.isV4Format(msg.name)) {
+    options = {
+      examineMode: true,
+      ipAddress: msg.name
+    }
+  } else {
+    options = {
+      examineMode: true,
+      shieldName: msg.name
+    }
+  }
 
   wifi.connect(options)
     .then(() => {
@@ -2734,7 +2711,7 @@ const processWifi = (msg, client) => {
         kTcpCodeSuccess,
         {
           command: kTcpWifiGetFirmwareVersion,
-          firmware: wifi.getFirmwareVersion()
+          message: wifi.getFirmwareVersion()
         }
       );
       // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetFirmwareVersion},${wifi.getFirmwareVersion()}${kTcpStop}`);
@@ -2746,7 +2723,7 @@ const processWifi = (msg, client) => {
         kTcpCodeSuccess,
         {
           command: kTcpWifiGetIpAddress,
-          firmware: wifi.getIpAddress()
+          message: wifi.getIpAddress()
         }
       );
       // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetIpAddress},${wifi.getIpAddress()}${kTcpStop}`);
@@ -2758,7 +2735,7 @@ const processWifi = (msg, client) => {
         kTcpCodeSuccess,
         {
           command: kTcpWifiGetMacAddress,
-          firmware: wifi.getMacAddress()
+          message: wifi.getMacAddress()
         }
       );
       // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetMacAddress},${wifi.getMacAddress()}${kTcpStop}`);
@@ -2770,7 +2747,7 @@ const processWifi = (msg, client) => {
         kTcpCodeSuccess,
         {
           command: kTcpWifiGetTypeOfAttachedBoard,
-          firmware: wifi.getBoardType()
+          message: wifi.getBoardType()
         }
       );
       // client.write(`${kTcpCmdWifi},${kTcpCodeSuccess},${kTcpWifiGetTypeOfAttachedBoard},${wifi.getBoardType()}${kTcpStop}`);
