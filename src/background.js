@@ -106,7 +106,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = false;
+const verbose = true;
 const sendCounts = true;
 let clients = [];
 
@@ -309,6 +309,7 @@ if (verbose) {
  *  Array of counts, no gain.
  */
 const accelerometerFunction = (client, accelDataCounts) => {
+  console.log("accelDataCounts", accelDataCounts);
   writeJSONToClient(
     client,
     {
@@ -406,10 +407,6 @@ const unrecognizedCommand = (client, type, msg) => {
 };
 
 const parseMessage = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // var char = String.fromCharCode(msg[0])
-  // console.log('msgElements[0]',msgElements[0],char)
-  // console.log(`parseMessage of type: ${msg.type}`);
   switch (msg.type) {
     case kTcpTypeBoardType:
       processBoardType(msg, client);
@@ -459,9 +456,7 @@ const parseMessage = (msg, client) => {
 };
 
 const processAccelerometer = (msg, client) => {
-  let msgElements = msg.toString().split(",");
-  const action = msgElements[1];
-  switch (action) {
+  switch (msg.action) {
     case kTcpActionStart:
       ganglionBLE
         .accelStart()
@@ -474,7 +469,6 @@ const processAccelerometer = (msg, client) => {
               action: kTcpActionStart
             }
           );
-          // client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch(err => {
           writeCodeToClientOfType(
@@ -485,7 +479,6 @@ const processAccelerometer = (msg, client) => {
               message: err.message
             }
           );
-          // client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStart},${err}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
@@ -500,8 +493,6 @@ const processAccelerometer = (msg, client) => {
               action: kTcpActionStop
             }
           );
-
-          // client.write(`${kTcpCmdAccelerometer},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch(err => {
           writeCodeToClientOfType(
@@ -512,7 +503,6 @@ const processAccelerometer = (msg, client) => {
               message: err.message
             }
           );
-          // client.write(`${kTcpCmdAccelerometer},${kTcpCodeErrorAccelerometerCouldNotStop},${err}${kTcpStop}`);
         });
       break;
   }
@@ -688,8 +678,6 @@ const _syncChanSettingsStart = client => {
  *                      closed, or connected. (Default is `false`)
  */
 const processChannelSettings = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       _syncChanSettingsStart(client);
@@ -749,8 +737,6 @@ const processChannelSettings = (msg, client) => {
 };
 
 const _processCommandBLE = (msg, client) => {
-  let msgElements = msg.toString().split(",");
-
   if (_.isNull(ganglionBLE)) {
     writeCodeToClientOfType(
       client,
@@ -818,9 +804,7 @@ const _processCommandSerial = (msg, client) => {
         protocol: kTcpProtocolSerial
       }
     );
-    // client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted},${kTcpProtocolSerial}${kTcpStop}`);
   }
-  // let msgElements = msg.toString().split(',');
   cyton
     .write(msg.command)
     .then(() => {
@@ -831,7 +815,6 @@ const _processCommandSerial = (msg, client) => {
         kTcpCodeSuccess,
         {}
       );
-      // client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
     })
     .catch(err => {
       if (verbose) console.log("serial unable to write command", err);
@@ -843,7 +826,6 @@ const _processCommandSerial = (msg, client) => {
           message: err.message
         }
       );
-      // client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
 
@@ -857,14 +839,11 @@ const _processCommandWifi = (msg, client) => {
         protocol: kTcpProtocolWiFi
       }
     );
-    // client.write(`${kTcpCmdCommand},${kTcpCodeErrorProtocolNotStarted},${kTcpProtocolWiFi}${kTcpStop}`);
   }
-  // let msgElements = msg.toString().split(',');
   wifi
     .write(msg.command)
     .then(() => {
       if (verbose) console.log(`sent ${msg.command} to Wifi shield`);
-      // client.write(`${kTcpCmdCommand},${kTcpCodeSuccess}${kTcpStop}`);
       writeCodeToClientOfType(
         client,
         kTcpTypeCommand,
@@ -882,7 +861,6 @@ const _processCommandWifi = (msg, client) => {
           message: err.message
         }
       );
-      // client.write(`${kTcpCmdCommand},${kTcpCodeErrorCommandNotAbleToBeSent},${err}${kTcpStop}`);
     });
 };
 
@@ -910,11 +888,9 @@ const processCommand = (msg, client) => {
  * @private
  */
 const _processConnectBLE = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
   if (ganglionBLE) {
     if (ganglionBLE.isConnected()) {
       if (verbose) console.log("already connected");
-      // client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
       writeCodeToClientOfType(
         client,
         kTcpTypeConnect,
@@ -922,26 +898,17 @@ const _processConnectBLE = (msg, client) => {
         {}
       );
     } else {
-      if (verbose) console.log(`Attempting to connect to ${name}`);
+      if (verbose) console.log(`Attempting to connect to ${msg.name}`);
       if (ganglionBLE.isSearching()) {
         if (curTcpProtocol === kTcpProtocolBLED112) {
-          // _connectGanglion(msgElements[1], client);
-          // ganglionBLE.once('ready', () => {
-          //   console.log('ready');
-          //
-          // });
           ganglionBLE
             .searchStop()
             .then(() => {
-              // console.log("Date: ", Date.now());
-              // _connectGanglion(msgElements[1], client);
               _connectGanglion(msg.name, client);
               return Promise.resolve();
-              // return ganglionBLE.connect(msgElements[1]);
             })
             .catch(err => {
               if (verbose) console.log(err);
-              // client.write(`${kTcpCmdConnect},${kTcpCodeErrorScanCouldNotStop},${err}${kTcpStop}`);
               writeCodeToClientOfType(
                 client,
                 kTcpTypeConnect,
@@ -991,7 +958,6 @@ const _processConnectBLE = (msg, client) => {
 };
 
 const _processConnectSerial = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
   if (cyton.isConnected()) {
     if (verbose) console.log("already connected");
     writeCodeToClientOfType(
@@ -1000,10 +966,8 @@ const _processConnectSerial = (msg, client) => {
       kTcpCodeErrorAlreadyConnected,
       {}
     );
-    // client.write(`${kTcpCmdConnect},${kTcpCodeErrorAlreadyConnected}${kTcpStop}`);
   } else {
     if (verbose) console.log("Going to try and connect");
-    // let addr = msgElements[1];
     cyton
       .connect(msg.name)
       .then(() => {
@@ -1016,7 +980,6 @@ const _processConnectSerial = (msg, client) => {
             firmare: cyton.getInfo().firmware.raw
           }
         );
-        // client.write(`${kTcpCmdConnect},${kTcpCodeSuccess},${cyton.getInfo().firmware.raw}${kTcpStop}`);
         // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
         cyton.on(k.OBCIEmitterSample, sampleFunction.bind(null, client));
         cyton.on(k.OBCIEmitterEot, messageFunction.bind(null, client));
@@ -1031,7 +994,6 @@ const _processConnectSerial = (msg, client) => {
             message: err.message
           }
         );
-        // client.write(`${kTcpCmdConnect},${kTcpCodeErrorUnableToConnect},${err}${kTcpStop}`);
       });
   }
 };
@@ -1387,8 +1349,6 @@ const processDisconnect = (msg, client) => {
 };
 
 const _examineWifi = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-
   if (verbose)
     console.log(
       `Examining to WiFi Shield called ${
@@ -1498,17 +1458,9 @@ const processExamine = (msg, client) => {
  * @private
  */
 const _processImpedanceCyton = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (message.action) {
     case kTcpActionSet:
       try {
-        // const channelNumber = parseInt(msgElements[2]);
-        // const pInputApplied = Boolean(parseInt(msgElements[3]));
-        // const nInputApplied = Boolean(parseInt(msgElements[4]));
-
-        // console.log('channelNumber', channelNumber, 'pInputApplied', pInputApplied, 'nInputApplied', nInputApplied);
-
         let funcer = null;
         if (curTcpProtocol === kTcpProtocolSerial)
           funcer = cyton.impedanceSet.bind(cyton);
@@ -1524,7 +1476,6 @@ const _processImpedanceCyton = (msg, client) => {
                 action: kTcpActionSet
               }
             );
-            // client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionSet}${kTcpStop}`);
           })
           .catch(err => {
             writeCodeToClientOfType(
@@ -1535,7 +1486,6 @@ const _processImpedanceCyton = (msg, client) => {
                 message: err.message
               }
             );
-            // client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceFailedToSetImpedance},${err.message}${kTcpStop}`);
           });
       } catch (e) {
         writeCodeToClientOfType(
@@ -1546,7 +1496,6 @@ const _processImpedanceCyton = (msg, client) => {
             message: e.message
           }
         );
-        // client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceFailedToParse},${e.message}${kTcpStop}`);
       }
       break;
   }
@@ -1563,8 +1512,6 @@ const _processImpedanceCyton = (msg, client) => {
  * @private
  */
 const _processImpedanceGanglion = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       ganglionBLE
@@ -1582,7 +1529,6 @@ const _processImpedanceGanglion = (msg, client) => {
               action: kTcpActionStart
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch(err => {
           writeCodeToClientOfType(
@@ -1593,7 +1539,6 @@ const _processImpedanceGanglion = (msg, client) => {
               message: err.message
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStart},${err}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
@@ -1609,7 +1554,6 @@ const _processImpedanceGanglion = (msg, client) => {
               action: kTcpActionStop
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch(err => {
           writeCodeToClientOfType(
@@ -1620,7 +1564,6 @@ const _processImpedanceGanglion = (msg, client) => {
               message: err.message
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStop},${err}${kTcpStop}`);
         });
       break;
   }
@@ -1631,9 +1574,7 @@ const _processImpedanceWifi = (msg, client) => {
     _processImpedanceCyton(msg, client);
     return;
   }
-  let msgElements = msg.toString().split(",");
-  const action = msgElements[1];
-  switch (action) {
+  switch (msg.action) {
     case kTcpActionStart:
       wifi
         .impedanceStart()
@@ -1650,7 +1591,6 @@ const _processImpedanceWifi = (msg, client) => {
               action: kTcpActionStart
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
         })
         .catch(err => {
           writeCodeToClientOfType(
@@ -1661,7 +1601,6 @@ const _processImpedanceWifi = (msg, client) => {
               message: err.message
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStart},${err}${kTcpStop}`);
         });
       break;
     case kTcpActionStop:
@@ -1677,7 +1616,6 @@ const _processImpedanceWifi = (msg, client) => {
               action: kTcpActionStop
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeSuccess},${kTcpActionStop}${kTcpStop}`);
         })
         .catch(err => {
           writeCodeToClientOfType(
@@ -1688,7 +1626,6 @@ const _processImpedanceWifi = (msg, client) => {
               message: err.message
             }
           );
-          // client.write(`${kTcpCmdImpedance},${kTcpCodeErrorImpedanceCouldNotStop},${err}${kTcpStop}`);
         });
       break;
   }
@@ -1724,7 +1661,7 @@ const protocolSafeStart = () => {
 const _protocolStartBLE = protocol => {
   return new Promise((resolve, reject) => {
     protocolSafeStart();
-    console.log("protocol".protocol);
+    console.log("protocol", protocol);
     if (protocol === kTcpProtocolBLED112) {
       /**
        * @type {Ganglion}
@@ -1745,6 +1682,8 @@ const _protocolStartBLE = protocol => {
             ganglionHubError = err;
             reject(err);
           } else {
+            console.log("WOO");
+
             resolve();
             if (verbose)
               console.log("Success starting ganglion bled112");
@@ -1831,7 +1770,7 @@ const _processProtocolBLE = (msg, client) => {
         .then(() => {
           const ganglionFound = peripheral => {
             let localName = "";
-            console.log("Current internet protocol is", protocol);
+            console.log("Current internet protocol is", msg.protocol);
             if (msg.protocol === kTcpProtocolBLED112) {
               localName = peripheral.advertisementDataString;
             } else {
@@ -1938,8 +1877,6 @@ const _processProtocolBLE = (msg, client) => {
 };
 
 const _processProtocolSerial = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       _protocolStartSerial().then(() => {
@@ -1991,8 +1928,6 @@ const _processProtocolSerial = (msg, client) => {
 };
 
 const _processProtocolWifi = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       _protocolStartWifi().then(() => {
@@ -2054,8 +1989,6 @@ const _processProtocolWifi = (msg, client) => {
  */
 const processProtocol = (msg, client) => {
   if (verbose) console.log("processProtocol", msg);
-  // let msgElements = msg.toString().split(',');
-  // const protocol = msgElements[2];
   switch (msg.protocol) {
     case kTcpProtocolBLE:
     case kTcpProtocolBLED112:
@@ -2195,8 +2128,6 @@ const _processScanBLEStart = client => {
 };
 
 const _processScanBLE = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       if (_.isNull(ganglionBLE)) {
@@ -2473,8 +2404,6 @@ const _processScanWifiStart = client => {
 };
 
 const _processScanSerial = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       _processScanSerialStart();
@@ -2507,8 +2436,6 @@ const _processScanSerial = (msg, client) => {
 };
 
 const _processScanWifi = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       if (_.isNull(wifi)) {
@@ -2614,8 +2541,6 @@ const processScan = (msg, client) => {
  * @private
  */
 const _processSdSerial = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       cyton
@@ -2669,8 +2594,6 @@ const _processSdSerial = (msg, client) => {
 };
 
 const _processSdWifi = (msg, client) => {
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpActionStart:
       wifi
@@ -2763,11 +2686,8 @@ const processWifi = (msg, client) => {
       kTcpCodeErrorWifiNotConnected,
       {}
     );
-    // client.write(`${kTcpCmdWifi},${kTcpCodeErrorWifiNotConnected}${kTcpStop}`);
     return;
   }
-  // let msgElements = msg.toString().split(',');
-  // const action = msgElements[1];
   switch (msg.action) {
     case kTcpWifiEraseCredentials:
       wifi
