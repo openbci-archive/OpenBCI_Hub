@@ -106,7 +106,7 @@ ipcMain.on("quit", () => {
 });
 
 const debug = false;
-const verbose = true;
+const verbose = false;
 const sendCounts = true;
 let clients = [];
 
@@ -309,7 +309,6 @@ if (verbose) {
  *  Array of counts, no gain.
  */
 const accelerometerFunction = (client, accelDataCounts) => {
-  console.log("accelDataCounts", accelDataCounts);
   writeJSONToClient(
     client,
     {
