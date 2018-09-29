@@ -1660,7 +1660,6 @@ const protocolSafeStart = () => {
 const _protocolStartBLE = protocol => {
   return new Promise((resolve, reject) => {
     protocolSafeStart();
-    console.log("protocol", protocol);
     if (protocol === kTcpProtocolBLED112) {
       /**
        * @type {Ganglion}
@@ -1681,8 +1680,6 @@ const _protocolStartBLE = protocol => {
             ganglionHubError = err;
             reject(err);
           } else {
-            console.log("WOO");
-
             resolve();
             if (verbose)
               console.log("Success starting ganglion bled112");
