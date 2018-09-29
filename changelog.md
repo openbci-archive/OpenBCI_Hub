@@ -1,3 +1,9 @@
+# v2.0.1
+
+### Bug Fixes
+
+- Fix bugs with accelerometer, BLED112, and impedance
+
 # v2.0.0
 
 ### Breaking Changes
