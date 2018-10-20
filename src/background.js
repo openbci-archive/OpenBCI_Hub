@@ -264,7 +264,6 @@ net
       for (let i = 0; i < rawMessages.length - 1; i++) {
         try {
           const message = JSON.parse(rawMessages[i].toString());
-          console.log("message", message);
           parseMessage(message, client);
         } catch (e) {
           // if (verbose) console.log(e);

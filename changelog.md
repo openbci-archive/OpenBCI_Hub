@@ -1,3 +1,9 @@
+# v2.0.2
+
+### Bug Fixes
+
+- Clean up logs
+
 # v2.0.1
 
 ### Bug Fixes
