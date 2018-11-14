@@ -1,3 +1,9 @@
+# v2.0.3
+
+### Bug Fixes
+
+- Ganglion was not working on Mojave
+
 # v2.0.2
 
 ### Bug Fixes
