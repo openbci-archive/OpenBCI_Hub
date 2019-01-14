@@ -1,3 +1,9 @@
+# v2.0.4
+
+### New Features
+
+- Added version number to the HUB's display
+
 # v2.0.3
 
 ### Bug Fixes
