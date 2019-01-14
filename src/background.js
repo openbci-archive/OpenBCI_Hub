@@ -1765,7 +1765,7 @@ const _processProtocolBLE = (msg, client) => {
         .then(() => {
           const ganglionFound = peripheral => {
             let localName = "";
-            console.log("Current internet protocol is", msg.protocol);
+            // console.log("Current internet protocol is", msg.protocol);
             if (msg.protocol === kTcpProtocolBLED112) {
               localName = peripheral.advertisementDataString;
             } else {

@@ -1,3 +1,15 @@
+# v2.0.4
+
+### New Features
+
+- Added version number to the HUB's display
+
+# v2.0.3
+
+### Bug Fixes
+
+- Ganglion was not working on Mojave
+
 # v2.0.2
 
 ### Bug Fixes
