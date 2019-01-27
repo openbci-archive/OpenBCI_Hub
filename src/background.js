@@ -1456,7 +1456,7 @@ const processExamine = (msg, client) => {
  * @private
  */
 const _processImpedanceCyton = (msg, client) => {
-  switch (message.action) {
+  switch (msg.action) {
     case kTcpActionSet:
       try {
         let funcer = null;
