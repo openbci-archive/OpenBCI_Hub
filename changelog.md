@@ -1,12 +1,14 @@
+# v2.0.5
+
+### Bug Fixes
+
+- Cyton impedance check functionality
+
 # v2.0.4
 
 ### New Features
 
 - Added version number to the HUB's display
-
-### Bug Fixes
-
-- Cyton impedance check functionality
 
 # v2.0.3
 
