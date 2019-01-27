@@ -1,3 +1,9 @@
+# v2.0.5
+
+### Bug Fixes
+
+- Cyton impedance check functionality
+
 # v2.0.4
 
 ### New Features
