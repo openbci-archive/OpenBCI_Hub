@@ -1,8 +1,8 @@
 import net from "net";
 import Ganglion from "@openbci/ganglion"; // native npm module
-import Wifi from "openbci-wifi";
-import { Constants } from "openbci-utilities";
-import Cyton from "openbci-cyton";
+import Wifi from "@openbci/wifi";
+import { Constants } from "@openbci/utilities";
+import Cyton from "@openbci/cyton";
 import menubar from "menubar";
 import * as _ from "lodash";
 import { ipcMain, dialog } from "electron";
