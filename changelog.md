@@ -2,7 +2,7 @@
 
 ### Bug Fixes
 
-- Update Ganglion npm module
+- Update OpenBCI npm module names
 - Fix Mac built-in BLE functionality
 
 # v2.0.5
