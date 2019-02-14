@@ -1,3 +1,10 @@
+# v2.0.6
+
+### Bug Fixes
+
+- Update Ganglion npm module
+- Fix Mac built-in BLE functionality
+
 # v2.0.5
 
 ### Bug Fixes

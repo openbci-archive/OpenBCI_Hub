@@ -1,5 +1,5 @@
 import net from "net";
-import Ganglion from "openbci-ganglion"; // native npm module
+import Ganglion from "@openbci/ganglion"; // native npm module
 import Wifi from "openbci-wifi";
 import { Constants } from "openbci-utilities";
 import Cyton from "openbci-cyton";
