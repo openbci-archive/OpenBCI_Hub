@@ -7,7 +7,7 @@ TCP_IP = '127.0.0.1'
 TCP_PORT = 10996
 BUFFER_SIZE = 1024
 MSGSREPLIES = [
-        ("", "q,200,;\n"),
+        ("", "{"code":200,"type":"status"}\r\n"),
         ("q,sup,;\n", "q,200,;\n")
 ]
 

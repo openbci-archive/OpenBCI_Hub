@@ -5,7 +5,7 @@ branches:
   only:
   - master
 env:
-- NODE_VERSION="6.9.2"
+- NODE_VERSION="10.7.0"
 before_script:
 - chmod +x ./scripts/travis-build.sh
 script: ./scripts/travis-build.sh
