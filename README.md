@@ -136,6 +136,8 @@ All packaging actions are handled by [electron-builder](https://github.com/elect
 
 **Note:** There are various icons and bitmap files in `resources` directory. Those are used in installers and intended to be replaced by your own graphics.
 
+**Note:** After OpenBCI NPM package update (ex. [@openbci/cyton](https://www.npmjs.com/package/@openbci/cyton)), use `npm run clean-install` and then `npm run release`.
+
 # License
 
 Released under the MIT license.
