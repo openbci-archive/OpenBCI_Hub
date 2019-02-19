@@ -1,5 +1,9 @@
 # v2.0.6
 
+### New Features
+
+- Add "clean-install" script to package.json
+
 ### Bug Fixes
 
 - Update OpenBCI npm module names
