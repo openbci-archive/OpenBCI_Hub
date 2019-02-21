@@ -1,3 +1,14 @@
+# v2.0.6
+
+### New Features
+
+- Add "clean-install" script to package.json
+
+### Bug Fixes
+
+- Update OpenBCI npm module names
+- Fix Mac built-in BLE functionality
+
 # v2.0.5
 
 ### Bug Fixes
