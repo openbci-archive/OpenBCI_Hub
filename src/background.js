@@ -1,8 +1,8 @@
 import net from "net";
-import Ganglion from "openbci-ganglion"; // native npm module
-import Wifi from "openbci-wifi";
-import { Constants } from "openbci-utilities";
-import Cyton from "openbci-cyton";
+import Ganglion from "@openbci/ganglion"; // native npm module
+import Wifi from "@openbci/wifi";
+import { constants } from "@openbci/utilities";
+import Cyton from "@openbci/cyton";
 import menubar from "menubar";
 import * as _ from "lodash";
 import { ipcMain, dialog } from "electron";
@@ -10,7 +10,7 @@ import path from "path";
 import ip from "ip";
 
 /** TCP */
-const k = Constants;
+const k = constants;
 const kTcpActionSet = "set";
 const kTcpActionStart = "start";
 const kTcpActionStatus = "status";
