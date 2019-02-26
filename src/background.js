@@ -975,7 +975,7 @@ const _processConnectSerial = (msg, client) => {
           kTcpTypeConnect,
           kTcpCodeSuccess,
           {
-            firmare: cyton.getInfo().firmware.raw
+            firmware: cyton.getInfo().firmware.raw
           }
         );
         // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
