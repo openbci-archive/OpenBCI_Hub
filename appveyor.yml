@@ -21,6 +21,7 @@ install:
   - SET GYP_MSVS_VERSION=2013
   - if "%PLATFORM%" == "x64" set PATH=C:\Python27-x64;%PATH%
   - if "%PLATFORM%" == "x86" SET PATH=C:\python27;%PATH%
+  - npm install --global --production windows-build-tools
   - npm install --build-from-source
   - SET SKIP_REQUIRE_NOBLE=true
 
