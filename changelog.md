@@ -1,3 +1,9 @@
+# v2.0.7
+
+### Bug Fixes
+
+- Display Cyton firmware in GUI OpenBCI/OpenBCI_GUI#449
+
 # v2.0.6
 
 ### New Features
