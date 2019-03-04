@@ -17,6 +17,14 @@ npm start
 ```
 ... and boom! You have a running desktop application on your screen.
 
+**On Windows:** open a PowerShell and run:
+```
+npm install --global --production windows-build-tools
+```
+If you have any issues, try:
+```
+npm install --build-from-source
+```
 # Structure of the project
 
 ## Declaring dependencies
