@@ -1,3 +1,10 @@
+# v2.0.7
+
+### Bug Fixes
+
+- Display Cyton firmware in GUI OpenBCI/OpenBCI_GUI#449
+- Cyton serial SD card mode causes GUI init to fail OpenBCI/OpenBCI_GUI#386
+
 # v2.0.6
 
 ### New Features

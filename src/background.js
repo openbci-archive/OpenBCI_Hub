@@ -975,7 +975,7 @@ const _processConnectSerial = (msg, client) => {
           kTcpTypeConnect,
           kTcpCodeSuccess,
           {
-            firmare: cyton.getInfo().firmware.raw
+            firmware: cyton.getInfo().firmware.raw
           }
         );
         // cyton.on(k.OBCIEmitterRawDataPacket, console.log);
@@ -2542,7 +2542,7 @@ const _processSdSerial = (msg, client) => {
         .sdStart(msg.command)
         .then(() => {
           writeCodeToClientOfType(client, kTcpTypeSd, kTcpCodeSuccess, {
-            action: kTcpActionStop,
+            action: kTcpActionStart,
             protocol: kTcpProtocolSerial
           });
           // client.write(`${kTcpCmdSd},${kTcpCodeSuccess},${kTcpActionStart}${kTcpStop}`);
@@ -2553,7 +2553,7 @@ const _processSdSerial = (msg, client) => {
             kTcpTypeSd,
             kTcpCodeErrorUnknown,
             {
-              action: kTcpActionStart,
+              action: kTcpActionStop,
               message: err.message,
               protocol: kTcpProtocolSerial
             }
