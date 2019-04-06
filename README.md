@@ -17,6 +17,14 @@ npm start
 ```
 ... and boom! You have a running desktop application on your screen.
 
+**On Windows:** open a PowerShell and run:
+```
+npm install --global --production windows-build-tools
+```
+If you have any issues, try:
+```
+npm install --build-from-source
+```
 # Structure of the project
 
 ## Declaring dependencies
@@ -135,6 +143,8 @@ You can create Windows installer only when running on Windows, the same is true 
 All packaging actions are handled by [electron-builder](https://github.com/electron-userland/electron-builder). See docs of this tool if you want to customize something.
 
 **Note:** There are various icons and bitmap files in `resources` directory. Those are used in installers and intended to be replaced by your own graphics.
+
+**Note:** After OpenBCI NPM package update (ex. [@openbci/cyton](https://www.npmjs.com/package/@openbci/cyton)), use `npm run clean-install` and then `npm run release`.
 
 # License
 
