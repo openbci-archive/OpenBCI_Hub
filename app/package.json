@@ -2,7 +2,7 @@
   "name": "openbci-electron-hub",
   "productName": "OpenBCIHub",
   "description": "OpenBCIHub",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "author": "AJ Keller <hello@pushtheworld.us>",
   "copyright": "© 2019, OpenBCI inc.",
   "homepage": "http://openbci.com",
