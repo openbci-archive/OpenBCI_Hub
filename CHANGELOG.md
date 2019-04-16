@@ -1,3 +1,9 @@
+# v2.0.8
+
+### Bug Fixes
+
+- Get host IP address on Windows machines using valid network interface
+
 # v2.0.7
 
 ### Bug Fixes
