@@ -58,5 +58,9 @@
     "spectron": "^3.3.0",
     "yargs": "^4.2.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@openbci/cyton": "^2.0.1",
+    "@openbci/ganglion": "^2.0.0",
+    "@openbci/wifi": "^1.0.2"
+  }
 }
