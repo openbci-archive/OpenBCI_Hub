@@ -9,8 +9,8 @@ This project does not impose on you any framework (like Angular or React). Inste
 The only development dependency of this project is [Node.js](https://nodejs.org). So just make sure you have it installed.
 Then type few commands known to every Node developer...
 ```
-git clone https://github.com/OpenBCI/OpenBCI_Ganglion_Electron.git
-cd OpenBCI_Ganglion_Electron
+git clone https://github.com/OpenBCI/OpenBCI_Hub.git
+cd OpenBCI_Hub
 npm install
 npm install electron-prebuilt -g
 npm start
