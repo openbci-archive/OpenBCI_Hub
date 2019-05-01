@@ -18,6 +18,6 @@
     "@openbci/cyton": "^2.0.1",
     "@openbci/ganglion": "^2.0.0",
     "@openbci/utilities": "^1.0.0",
-    "@openbci/wifi": "^1.0.1"
+    "@openbci/wifi": "^1.0.2"
   }
 }
