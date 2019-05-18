@@ -1,3 +1,9 @@
+# v2.0.9
+
+### Bug Fixes
+
+- Uncaught exceptions no longer close Hub app Fixes OpenBCI/OpenBCI_GUI#516 
+
 # v2.0.8
 
 ### Bug Fixes
