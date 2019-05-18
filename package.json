@@ -26,7 +26,8 @@
   "scripts": {
     "postinstall": "node ./node_modules/electron-builder/out/install-app-deps.js",
     "build": "gulp build",
-    "clean-install": "cd app && rm -rf node_modules && git clean -fX && npm install",
+    "clean-install-linux": "cd app && rm -rf node_modules && git clean -fX && npm install",
+    "clean-install-win": "cd app && rmdir /s node_modules && git clean -fX && npm install",
     "prerelease": "gulp build --env=production",
     "release": "build --publish never",
     "release-win32": "build --ia32 --publish never",

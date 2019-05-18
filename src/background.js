@@ -138,10 +138,12 @@ let cyton = new Cyton({
 process.on("uncaughtException", function(err) {
   if (verbose) console.log("Err: ", err.message);
   dialog.showErrorBox("OpenBCIHub Fatal Error", err.message);
+  /* Leave the Hub open even after uncaught exception
   if (mb) {
     if (verbose) console.log("Closing the app");
     mb.app.quit();
   }
+  */
 });
 
 const cleanupAfterNoClients = () => {
