@@ -1,3 +1,27 @@
+# v2.0.8
+
+### Bug Fixes
+
+- Get host IP address on Windows machines using valid network interface
+
+# v2.0.7
+
+### Bug Fixes
+
+- Display Cyton firmware in GUI OpenBCI/OpenBCI_GUI#449
+- Cyton serial SD card mode causes GUI init to fail OpenBCI/OpenBCI_GUI#386
+
+# v2.0.6
+
+### New Features
+
+- Add "clean-install" script to package.json
+
+### Bug Fixes
+
+- Update OpenBCI npm module names
+- Fix Mac built-in BLE functionality
+
 # v2.0.5
 
 ### Bug Fixes
