@@ -1,3 +1,9 @@
+# v2.0.9
+
+### Bug Fixes
+
+- Fix BLED112 Impedance check by allowing 2 seconds for command/success OpenBCI/OpenBCI_GUI#421
+
 # v2.0.8
 
 ### Bug Fixes
