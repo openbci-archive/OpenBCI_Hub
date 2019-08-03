@@ -1512,60 +1512,67 @@ const _processImpedanceCyton = (msg, client) => {
 const _processImpedanceGanglion = (msg, client) => {
   switch (msg.action) {
     case kTcpActionStart:
-      ganglionBLE
-        .impedanceStart()
-        .then(() => {
-          ganglionBLE.on(
-            k.OBCIEmitterImpedance,
-            impedanceFunction.bind(null, client)
-          );
-          writeCodeToClientOfType(
-            client,
-            kTcpTypeImpedance,
-            kTcpCodeSuccess,
-            {
-              action: kTcpActionStart
-            }
-          );
-        })
-        .catch(err => {
-          writeCodeToClientOfType(
-            client,
-            kTcpTypeImpedance,
-            kTcpCodeErrorImpedanceCouldNotStart,
-            {
-              message: err.message
-            }
-          );
-        });
+      setTimeout(() => {
+        console.log('start impedance check');
+        ganglionBLE
+          .impedanceStart()
+          .then(() => {
+            ganglionBLE.on(
+              k.OBCIEmitterImpedance,
+              impedanceFunction.bind(null, client)
+            );
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeImpedance,
+              kTcpCodeSuccess,
+              {
+                action: kTcpActionStart
+              }
+            );
+          })
+          .catch(err => {
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeImpedance,
+              kTcpCodeErrorImpedanceCouldNotStart,
+              {
+                message: err.message
+              }
+            );
+          });
+      }, 2000);
       break;
     case kTcpActionStop:
-      ganglionBLE
-        .impedanceStop()
-        .then(() => {
-          ganglionBLE.removeAllListeners(k.OBCIEmitterImpedance);
-          writeCodeToClientOfType(
-            client,
-            kTcpTypeImpedance,
-            kTcpCodeSuccess,
-            {
-              action: kTcpActionStop
-            }
-          );
-        })
-        .catch(err => {
-          writeCodeToClientOfType(
-            client,
-            kTcpTypeImpedance,
-            kTcpCodeErrorImpedanceCouldNotStop,
-            {
-              message: err.message
-            }
-          );
-        });
+      setTimeout(() => {
+        console.log('stop impedance check');
+        ganglionBLE
+          .impedanceStop()
+          .then(() => {
+            ganglionBLE.removeAllListeners(k.OBCIEmitterImpedance);
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeImpedance,
+              kTcpCodeSuccess,
+              {
+                action: kTcpActionStop
+              }
+            );
+          })
+          .catch(err => {
+            writeCodeToClientOfType(
+              client,
+              kTcpTypeImpedance,
+              kTcpCodeErrorImpedanceCouldNotStop,
+              {
+                message: err.message
+              }
+            );
+          });
+      }, 2000);
       break;
   }
 };
+
 
 const _processImpedanceWifi = (msg, client) => {
   if (wifi.getNumberOfChannels() > k.OBCINumberOfChannelsGanglion) {
