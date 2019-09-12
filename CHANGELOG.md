@@ -1,3 +1,9 @@
+# v2.1.0
+
+### Bug Fixes
+
+- Return cyton firmware version in wifi connect response
+
 # v2.0.9
 
 ### Bug Fixes
