@@ -1022,12 +1022,22 @@ const _connectWifi = (msg, client) => {
     .then(() => {
       //TODO: Finish this connect
       if (verbose) console.log("connect success");
+      if (wifi.getBoardType() == k.OBCIBoardGanglion) {
+        return Promise.resolve('');
+      } else {
+        // Query cyton firmware version to report in connect response.
+        return wifi.write('V');
+      }
+    })
+    .then((version) => {
       // client.write(`${kTcpCmdConnect},${kTcpCodeSuccess}${kTcpStop}`);
       writeCodeToClientOfType(
         client,
         kTcpTypeConnect,
         kTcpCodeSuccess,
-        {}
+        {
+          firmware: version.trim()
+        }
       );
       // wifi.on(k.OBCIEmitterRawDataPacket, console.log);
       wifi.on("sample", sampleFunction.bind(null, client));
